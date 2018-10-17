@@ -43,7 +43,8 @@ If you want to go back to the last branch you were on, use the shorthand
 git checkout -
 ```
 The main branch of the project will be called `master`. Please don't write any
-large changes to master before conferring with the group.
+large changes to master before conferring with the group. Editing master is how
+nasty merge conflicts tend to happen.
 8. To see all the branches in the repository, use
 ```
 git branch -a
