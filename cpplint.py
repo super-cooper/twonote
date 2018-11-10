@@ -4310,7 +4310,7 @@ def GetLineWidth(line):
 
 def CheckStyle(filename, clean_lines, linenum, file_extension, nesting_state,
                error):
-  """Checks rules from the 'C++ style rules' section of cppguide.html.
+  """Checks rules from the 'C++ style rules' section of cppguide.docgen.
 
   Most of these rules are hard to test (naming, comment style), but we
   do what we can.  In particular we check for 2-space indents, line lengths,
@@ -4684,7 +4684,7 @@ _RE_PATTERN_REF_STREAM_PARAM = (
 
 def CheckLanguage(filename, clean_lines, linenum, file_extension,
                   include_state, nesting_state, error):
-  """Checks rules from the 'C++ language rules' section of cppguide.html.
+  """Checks rules from the 'C++ language rules' section of cppguide.docgen.
 
   Some of these rules are hard to test (function overloading, using
   uint32 inappropriately), but we do the best we can.
