@@ -13,7 +13,7 @@ class Handler:
 
 
 builder = Gtk.Builder()
-builder.add_from_file("./TestNotepad1.glade")
+builder.add_from_file("../views/application_view.glade")
 textview = builder.get_object("textview")
 buffer = textview.get_buffer()
 builder.connect_signals(Handler())
