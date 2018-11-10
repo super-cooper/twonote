@@ -35,29 +35,6 @@ class Handler:
             (start, end) = bounds
             buffer.apply_tag(tag_found, start, end)
 
-'''
-Shortcuts
-C-n -> new note
-C-d -> delete note
-C-f -> search
-C-t -> move to other tabs
-C-p -> print
-C-a -> attach a file
-
-C-b -> bold
-C-i -> italic
-C-u -> underline
-C-h -> highlight a text
-
-C-+ -> increase font size
-C-- -> decrease font size
-
-C-f-h -> heading format
-
-C-S-t -> insert current date and time
-'''
-
-
 
 builder = Gtk.Builder()
 builder.add_from_file('../views/application_view.glade')
