@@ -12,19 +12,20 @@ class StructureComponent(ABC):
     """
 
     # global condition variable used to prevent concurrent component creation and _id overlap
-    component_create = threading.Condition(lock=threading.RLock())
+    _component_create = threading.Condition(lock=threading.RLock())
+    # global static identifier for new components
+    _component_count = 0
 
     def __init__(self):
         """ Constructor
         """
-        StructureComponent.component_create.acquire()
         # GMT Unix time at which the page was created
         self.creation_time: int = time.time()
-        # Current REALLY shitty solution to prevent page ID collision TODO replace this
-        time.sleep(1)
-        StructureComponent.component_create.release()
+        StructureComponent._component_create.acquire()
         # unique ID to use as constant time reference to this page
-        self._id: int = self.creation_time
+        self._id: int = StructureComponent._component_count
+        StructureComponent._component_count += 1
+        StructureComponent._component_create.release()
 
     def unroll_path(self) -> List[int]:
         """
@@ -137,8 +138,8 @@ class StructureManager:
     def __init__(self, path: str):
         """ Constructor
         """
-        # number of total tabs created
-        self._total_tabs = 1
+        # number of total tabs created (used for naming untitled tabs)
+        self._total_tabs = 0
         # dict that associates IDs with components
         self.components: Dict[int, StructureComponent] = {}
         # path is a string that stores the root of the notebook in the filesystem
@@ -150,8 +151,8 @@ class StructureManager:
         :param has_default_page: Whether or not the new Tab will be initialized with a default empty page
         :return: The new Tab created
         """
-        tab = Tab(name if name is not None else "Tab " + str(self._total_tabs))
         self._total_tabs += 1
+        tab = Tab(name if name is not None else "Tab " + str(self._total_tabs))
         if has_default_page:
             page = tab.add_page()
             self.components[page._id] = page
