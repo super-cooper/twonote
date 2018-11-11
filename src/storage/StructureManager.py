@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Dict, List, Union
 
+DEFAULT_PAGE_NAME = 'Untitled Page'
+
 
 class StructureComponent(ABC):
     """ Base class for notebook components containing methods that must be implemented
@@ -32,7 +34,7 @@ class StructureComponent(ABC):
         return [self._id]
 
     @abstractmethod
-    def add_page(self, title: str=None) -> 'Page':
+    def add_page(self, title: str = None) -> 'Page':
         pass
 
 
@@ -79,12 +81,12 @@ class Page(StructureComponent):
     def unroll_path(self) -> List[int]:
         return [self._id] + self.parent.unroll_path()
 
-    def add_page(self, title: str=None) -> 'Page':
+    def add_page(self, title: str = DEFAULT_PAGE_NAME) -> 'Page':
         """ Creates a new sub-page, with this page as a parent
         :param title: The title of the new page
         :return: The new page created
         """
-        page = Page(self)
+        page = Page(self, title)
         if title is not None:
             page.set_title(title)
         return page
@@ -106,14 +108,12 @@ class Tab(StructureComponent):
         # dict of all top-level pages as {_id: Page}
         self.pages: Dict[int, Page] = OrderedDict()
 
-    def add_page(self, title: str=None) -> Page:
+    def add_page(self, title: str = DEFAULT_PAGE_NAME) -> Page:
         """ Adds a new page under this Tab
         :param title: The title of the new page
         :return: The new page created
         """
-        new_page = Page(self)
-        if title is not None:
-            new_page.set_title(title)
+        new_page = Page(self, title)
         self.pages[new_page._id] = new_page
         return new_page
 
