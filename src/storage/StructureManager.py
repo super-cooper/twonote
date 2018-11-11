@@ -111,7 +111,9 @@ class Tab(StructureComponent):
         :param title: The title of the new page
         :return: The new page created
         """
-        new_page = Page(parent=self)
+        new_page = Page(self)
+        if title is not None:
+            new_page.set_title(title)
         self.pages[new_page._id] = new_page
         return new_page
 
