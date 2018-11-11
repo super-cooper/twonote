@@ -102,7 +102,7 @@ class Page(StructureComponent):
         :except ValueError: If the given id is not a child of this Page
         """
         if child_id not in self.sub_pages:
-            ValueError(f"Component with ID {child_id} is not a member of page with ID {self._id}")
+            raise ValueError(f"Component with ID {child_id} is not a member of page with ID {self._id}")
         del self.sub_pages[child_id]
 
 
@@ -145,7 +145,7 @@ class Tab(StructureComponent):
         :param child_id: The ID of the child to remove
         """
         if child_id not in self.pages:
-            ValueError(f"Page with ID {child_id} not a member of Tab with ID {self._id}")
+            raise ValueError(f"Page with ID {child_id} not a member of Tab with ID {self._id}")
         del self.pages[child_id]
 
 
@@ -190,9 +190,9 @@ class StructureManager:
         :return: The new page that was created
         """
         if len(self.components) == 0:
-            ValueError("Cannot insert pages if no tabs exist")
+            raise ValueError("Cannot insert pages if no tabs exist")
         if parent.id not in self:
-            ValueError(f"Cannot insert pages as child of component not in structure. Parent ID: {parent.id}")
+            raise ValueError(f"Cannot insert pages as child of component not in structure. Parent ID: {parent.id}")
         page = parent.add_page(title)
         self.components[page.id] = page
         return page
@@ -214,7 +214,9 @@ class StructureManager:
         :except KeyError: If _id is not associated with some component in the structure
         :return: The component associated with the given _id
         """
-        return self.components[_id] if _id in self.components else KeyError(f"No component found with ID {_id}")
+        if _id not in self.components:
+            raise KeyError(f"No component found with ID {_id}")
+        return self.components[_id]
 
     def __contains__(self, _id: int) -> bool:
         """ Tells if a component is in this structure (by ID)
