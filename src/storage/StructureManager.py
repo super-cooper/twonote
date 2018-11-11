@@ -4,6 +4,11 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Dict, List, Union
 
+import gi
+
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk
+
 DEFAULT_PAGE_NAME = 'Untitled Page'
 
 
@@ -36,7 +41,7 @@ class StructureComponent(ABC):
         return [self.id]
 
     @abstractmethod
-    def add_page(self, title: str = None) -> 'Page':
+    def add_page(self, text_buffer: Gtk.TextBuffer, title: str = None) -> 'Page':
         pass
 
     @abstractmethod
@@ -55,7 +60,7 @@ class Page(StructureComponent):
     Unfolding the hierarchy of pages should be done depth-first
     """
 
-    def __init__(self, parent, title: str = 'Untitled Page'):
+    def __init__(self, parent, text_buffer: Gtk.TextBuffer, title: str = 'Untitled Page'):
         """ Constructor
         :param title: The title of this new Page
         """
@@ -64,7 +69,10 @@ class Page(StructureComponent):
         self.sub_pages: Dict[int, Page] = OrderedDict()
         # Pointer to the parent of this page
         self.parent: Union[Page, Tab] = parent
+        # Title of this page
         self.title = title
+        # The text buffer holding the text contents of the page
+        self.text_buffer: Gtk.TextBuffer = text_buffer
 
     def is_leaf(self) -> bool:
         """ Tells if this page has any sub-pages
@@ -91,8 +99,9 @@ class Page(StructureComponent):
     def unroll_path(self) -> List[int]:
         return [self.id] + self.parent.unroll_path()
 
-    def add_page(self, title: str = DEFAULT_PAGE_NAME) -> 'Page':
+    def add_page(self, text_buffer: Gtk.TextBuffer, title: str = DEFAULT_PAGE_NAME) -> 'Page':
         """ Creates a new sub-page, with this page as a parent
+        :param text_buffer: The TextBuffer associated with this page
         :param title: The title of the new page
         :return: The new page created
         """
@@ -137,12 +146,13 @@ class Tab(StructureComponent):
         # dict of all top-level pages as {_id: Page}
         self.pages: Dict[int, Page] = OrderedDict()
 
-    def add_page(self, title: str = DEFAULT_PAGE_NAME) -> Page:
+    def add_page(self, text_buffer: Gtk.TextBuffer, title: str = DEFAULT_PAGE_NAME) -> Page:
         """ Adds a new page under this Tab
+        :param text_buffer: The TextBuffer associated with this page
         :param title: The title of the new page
         :return: The new page created
         """
-        new_page = Page(self, title)
+        new_page = Page(self, text_buffer, title)
         self.pages[new_page.id] = new_page
         return new_page
 
@@ -192,23 +202,20 @@ class StructureManager:
         # path is a string that stores the root of the notebook in the filesystem
         self.path = path
 
-    def new_tab(self, name: str = None, has_default_page: bool = False) -> Tab:
+    def new_tab(self, name: str = None) -> Tab:
         """ Creates a new Tab in this notebook
         :param name: The name of the new Tab
-        :param has_default_page: Whether or not the new Tab will be initialized with a default empty page
         :return: The new Tab created
         """
         self._total_tabs += 1
         tab = Tab(name if name is not None else "Tab " + str(self._total_tabs))
-        if has_default_page:
-            page = tab.add_page()
-            self.components[page.id] = page
         self.components[tab.id] = tab
         return tab
 
-    def new_page(self, parent: StructureComponent, title: str = None) -> Page:
+    def new_page(self, parent: StructureComponent, text_buffer: Gtk.TextBuffer, title: str = DEFAULT_PAGE_NAME) -> Page:
         """
         Creates a new page at the specified path
+        :param text_buffer: The TextBuffer associated with the new page
         :param parent: The component under which to add the new page
         :param title: The title of the new page
         :except ValueError: if the structure has no tabs, or the given parent is not in the structure
@@ -218,7 +225,7 @@ class StructureManager:
             raise ValueError("Cannot insert pages if no tabs exist")
         if parent.id not in self:
             raise ValueError(f"Cannot insert pages as child of component not in structure. Parent ID: {parent.id}")
-        page = parent.add_page(title)
+        page = parent.add_page(text_buffer, title)
         self.components[page.id] = page
         return page
 
