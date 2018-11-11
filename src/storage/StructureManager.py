@@ -43,6 +43,10 @@ class StructureComponent(ABC):
     def remove(self, child_id: int):
         pass
 
+    @abstractmethod
+    def all_children(self) -> List[int]:
+        pass
+
 
 class Page(StructureComponent):
     """
@@ -95,6 +99,7 @@ class Page(StructureComponent):
         page = Page(self, title)
         if title is not None:
             page.set_title(title)
+        self.sub_pages[page.id] = page
         return page
 
     def remove(self, child_id: int):
@@ -102,8 +107,18 @@ class Page(StructureComponent):
         :except ValueError: If the given id is not a child of this Page
         """
         if child_id not in self.sub_pages:
-            raise ValueError(f"Component with ID {child_id} is not a member of page with ID {self._id}")
+            raise ValueError(f"Component with ID {child_id} is not a member of page with ID {self.id}")
         del self.sub_pages[child_id]
+
+    def all_children(self) -> List[int]:
+        """ Returns a depth-first accumulated list of all nested children for this Page
+        :return: A list of of all child IDs of this Page
+        """
+        accumulator = []
+        for child_id in self.sub_pages:
+            accumulator.append(child_id)
+            accumulator += self.sub_pages[child_id].all_children()
+        return accumulator
 
 
 class Tab(StructureComponent):
@@ -145,8 +160,18 @@ class Tab(StructureComponent):
         :param child_id: The ID of the child to remove
         """
         if child_id not in self.pages:
-            raise ValueError(f"Page with ID {child_id} not a member of Tab with ID {self._id}")
+            raise ValueError(f"Page with ID {child_id} not a member of Tab with ID {self.id}")
         del self.pages[child_id]
+
+    def all_children(self) -> List[int]:
+        """ Returns a depth-first accumulated list of all nested children for this Tab
+        :return: A list of of all child IDs of this Tab
+        """
+        accumulator = []
+        for child_id in self.pages:
+            accumulator.append(child_id)
+            accumulator += self.pages[child_id].all_children()
+        return accumulator
 
 
 class StructureManager:
@@ -205,6 +230,8 @@ class StructureManager:
         component = self.get_component(_id)
         if component.parent is not None:
             component.parent.remove(_id)
+        for child_id in self.components[_id].all_children():
+            del self.components[child_id]
         del self.components[_id]
 
     def get_component(self, _id: int) -> StructureComponent:
