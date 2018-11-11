@@ -166,6 +166,8 @@ class StructureManager:
         :param title: The title of the new page
         :return: The new page that was created
         """
+        if len(self.components) == 0:
+            ValueError("Cannot insert pages if no tabs exist")
         page = parent.add_page(title)
         self.components[page._id] = page
         return page
