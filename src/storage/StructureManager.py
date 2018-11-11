@@ -26,6 +26,7 @@ class StructureComponent(ABC):
         self._id: int = StructureComponent._component_count
         StructureComponent._component_count += 1
         StructureComponent._component_create.release()
+        self.parent: StructureComponent = None
 
     def unroll_path(self) -> List[int]:
         """
@@ -36,6 +37,10 @@ class StructureComponent(ABC):
 
     @abstractmethod
     def add_page(self, title: str = None) -> 'Page':
+        pass
+
+    @abstractmethod
+    def remove(self, child_id: int):
         pass
 
 
@@ -92,6 +97,14 @@ class Page(StructureComponent):
             page.set_title(title)
         return page
 
+    def remove(self, child_id: int):
+        """ Removes a sub-page from the structure
+        :except ValueError: If the given id is not a child of this Page
+        """
+        if child_id not in self.sub_pages:
+            ValueError(f"Component with ID {child_id} is not a member of page with ID {self._id}")
+        del self.sub_pages[child_id]
+
 
 class Tab(StructureComponent):
     """
@@ -127,12 +140,21 @@ class Tab(StructureComponent):
         self.name = name
         return changed
 
+    def remove(self, child_id: int):
+        """ Removes a child page from the structure
+        :param child_id: The ID of the child to remove
+        """
+        if child_id not in self.pages:
+            ValueError(f"Page with ID {child_id} not a member of Tab with ID {self._id}")
+        del self.pages[child_id]
+
 
 class StructureManager:
     """
     Manages document structure for a notebook
     Notebooks are organized with top-level categories known as "tabs," and each tab contains a series of
     pages, each of which may contain infinite sub-pages
+    TODO support remove parent pages without deleting children (giving them a new parent?)
     """
 
     def __init__(self, path: str):
@@ -172,10 +194,21 @@ class StructureManager:
         self.components[page._id] = page
         return page
 
-    def get_component(self, _id: int) -> Union[StructureComponent, None]:
+    def remove_component(self, _id):
+        """ Removes a component from the structure
+        :param _id: The ID of the component to be removed
+        :except KeyError: If there is no component associated with _id
+        """
+        component = self.get_component(_id)
+        if component.parent is not None:
+            component.parent.remove(_id)
+        del self.components[_id]
+
+    def get_component(self, _id: int) -> StructureComponent:
         """
         Searches for a component by _id number
         :param _id: The _id to search for
+        :except KeyError: If _id is not associated with some component in the structure
         :return: The component associated with the given _id
         """
-        return self.components[_id] if _id in self.components else None
+        return self.components[_id] if _id in self.components else KeyError(f"No component found with ID {_id}")
