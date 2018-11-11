@@ -23,7 +23,7 @@ class StructureComponent(ABC):
         self.creation_time: int = time.time()
         StructureComponent._component_create.acquire()
         # unique ID to use as constant time reference to this page
-        self._id: int = StructureComponent._component_count
+        self.id: int = StructureComponent._component_count
         StructureComponent._component_count += 1
         StructureComponent._component_create.release()
         self.parent: StructureComponent = None
@@ -33,7 +33,7 @@ class StructureComponent(ABC):
         Unrolls the path from a page back to its root
         :return: The full path to the requested structure component in the order of root -> self
         """
-        return [self._id]
+        return [self.id]
 
     @abstractmethod
     def add_page(self, title: str = None) -> 'Page':
@@ -85,7 +85,7 @@ class Page(StructureComponent):
         return changed
 
     def unroll_path(self) -> List[int]:
-        return [self._id] + self.parent.unroll_path()
+        return [self.id] + self.parent.unroll_path()
 
     def add_page(self, title: str = DEFAULT_PAGE_NAME) -> 'Page':
         """ Creates a new sub-page, with this page as a parent
@@ -128,7 +128,7 @@ class Tab(StructureComponent):
         :return: The new page created
         """
         new_page = Page(self, title)
-        self.pages[new_page._id] = new_page
+        self.pages[new_page.id] = new_page
         return new_page
 
     def set_name(self, name: str) -> bool:
@@ -177,8 +177,8 @@ class StructureManager:
         tab = Tab(name if name is not None else "Tab " + str(self._total_tabs))
         if has_default_page:
             page = tab.add_page()
-            self.components[page._id] = page
-        self.components[tab._id] = tab
+            self.components[page.id] = page
+        self.components[tab.id] = tab
         return tab
 
     def new_page(self, parent: StructureComponent, title: str = None) -> Page:
@@ -186,12 +186,15 @@ class StructureManager:
         Creates a new page at the specified path
         :param parent: The component under which to add the new page
         :param title: The title of the new page
+        :except ValueError: if the structure has no tabs, or the given parent is not in the structure
         :return: The new page that was created
         """
         if len(self.components) == 0:
             ValueError("Cannot insert pages if no tabs exist")
+        if parent.id not in self:
+            ValueError(f"Cannot insert pages as child of component not in structure. Parent ID: {parent.id}")
         page = parent.add_page(title)
-        self.components[page._id] = page
+        self.components[page.id] = page
         return page
 
     def remove_component(self, _id):
@@ -212,3 +215,10 @@ class StructureManager:
         :return: The component associated with the given _id
         """
         return self.components[_id] if _id in self.components else KeyError(f"No component found with ID {_id}")
+
+    def __contains__(self, _id: int) -> bool:
+        """ Tells if a component is in this structure (by ID)
+        :param _id: The _id of the component to look up
+        :return: True if the component is in this structure, False otherwise
+        """
+        return _id in self.components
