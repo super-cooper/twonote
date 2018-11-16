@@ -198,7 +198,7 @@ class StructureManager:
         # number of total tabs created (used for naming untitled tabs)
         self._total_tabs = 0
         # dict that associates IDs with components
-        self.components: Dict[int, StructureComponent] = {}
+        self.components: Dict[int, StructureComponent] = OrderedDict()
         # path is a string that stores the root of the notebook in the filesystem
         self.path = path
 
@@ -258,3 +258,14 @@ class StructureManager:
         :return: True if the component is in this structure, False otherwise
         """
         return _id in self.components
+
+    def __eq__(self, other: 'StructureManager') -> bool:
+        """ Tells if this StructureManager is equal internally to another
+        Compares all contained components for equality, very inefficient
+        TODO Find more decidable way to implement this
+        :param other: The other StructureManager to compare to
+        :return: True if all fields of this and other are equal
+        """
+        return len(self.components) != len(other.components) and all(
+            self.get_component(id1) == other.get_component(id2) for id1, id2 in
+            zip(self.components.keys(), other.components.keys())) and self.path == other.path
