@@ -15,6 +15,7 @@ TEST_PATH = '/tmp/TestNotebook/'
 class StructureManagerTest(unittest.TestCase):
     """ Unit tests for StructureManager
     """
+
     def setUp(self):
         self.structure_manager = StructureManager(TEST_PATH)
 
@@ -42,13 +43,12 @@ class StructureManagerTest(unittest.TestCase):
     def test_new_page(self):
         tab = self.structure_manager.new_tab('Test')
         page = self.structure_manager.new_page(tab, Gtk.TextBuffer())
-        self.assertEqual([page.id, tab.id], page.unroll_path())
+        self.assertEqual([page.id, tab.id], self.structure_manager.unroll_path(page.id), "Initial new page incorrect")
         self.assertEqual(DEFAULT_PAGE_NAME, page.title, "Default page title incorrect")
         self.assertTrue(page.is_leaf(), "First page is not leaf")
-        self.assertTrue(page.is_root_page(), "First page is not root page")
         sub_page = self.structure_manager.new_page(page, Gtk.TextBuffer())
-        self.assertEqual([sub_page.id, page.id, tab.id], sub_page.unroll_path(), "Document structure of sub-page not "
-                                                                                 "formed correctly")
+        self.assertEqual([sub_page.id, page.id, tab.id], self.structure_manager.unroll_path(sub_page.id),
+                         "Document structure of sub-page not formed correctly")
 
     def test_remove_component(self):
         tab1 = self.structure_manager.new_tab()
@@ -62,3 +62,17 @@ class StructureManagerTest(unittest.TestCase):
         self.assertTrue(page2.id not in self.structure_manager,
                         "Nested remove of page does not affect StructureManager")
         self.assertTrue(tab2.id not in self.structure_manager, "Remove of tab does not affect StructureManager")
+
+    def test_eq(self):
+        _copy = copy.deepcopy(self.structure_manager)
+        self.assertTrue(_copy == self.structure_manager, "Copied empty StructureManager is not equal")
+        tab = self.structure_manager.new_tab()
+        page = self.structure_manager.new_page(tab, Gtk.TextBuffer())
+        _copy = copy.deepcopy(self.structure_manager)
+        self.assertTrue(_copy == self.structure_manager, "Copied StructureManager is not equal")
+        sm1 = StructureManager(TEST_PATH)
+        self.assertTrue(sm1 != self.structure_manager, "Empty StructureManager is equal to non-empty StructureManager")
+        self.assertTrue(StructureManager(TEST_PATH) != StructureManager(TEST_PATH + 'a'),
+                        "StructureManagers with different paths considered equal")
+        _copy.new_page(page, Gtk.TextBuffer())
+        self.assertTrue(self.structure_manager != _copy, "Different populated StructureManagers considered equal")

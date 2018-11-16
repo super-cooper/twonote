@@ -1,8 +1,9 @@
+import copy
 import threading
 import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Dict, List, Union
+from typing import Dict, List, Any, Tuple
 
 import gi
 
@@ -31,14 +32,7 @@ class StructureComponent(ABC):
         self.id: int = StructureComponent._component_count
         StructureComponent._component_count += 1
         StructureComponent._component_create.release()
-        self.parent: StructureComponent = None
-
-    def unroll_path(self) -> List[int]:
-        """
-        Unrolls the path from a page back to its root
-        :return: The full path to the requested structure component in the order of root -> self
-        """
-        return [self.id]
+        self.parent: int = None
 
     @abstractmethod
     def add_page(self, text_buffer: Gtk.TextBuffer, title: str = None) -> 'Page':
@@ -64,7 +58,7 @@ class Page(StructureComponent):
     Unfolding the hierarchy of pages should be done depth-first
     """
 
-    def __init__(self, parent, text_buffer: Gtk.TextBuffer, title: str = 'Untitled Page'):
+    def __init__(self, parent: int, text_buffer: Gtk.TextBuffer, title: str = 'Untitled Page'):
         """ Constructor
         :param title: The title of this new Page
         """
@@ -72,7 +66,7 @@ class Page(StructureComponent):
         # List of sub-pages owned by this page organized as {_id: Page}
         self.sub_pages: Dict[int, Page] = OrderedDict()
         # Pointer to the parent of this page
-        self.parent: Union[Page, Tab] = parent
+        self.parent: int = parent
         # Title of this page
         self.title = title
         # The text buffer holding the text contents of the page
@@ -84,12 +78,6 @@ class Page(StructureComponent):
         """
         return len(self.sub_pages) == 0
 
-    def is_root_page(self) -> bool:
-        """ Tells if this page is a top-level page (no parent)
-        :return: True if this page's parent is a Tab, False otherwise
-        """
-        return type(self.parent) is Tab
-
     def set_title(self, title: str) -> bool:
         """
         Sets a new title for this Page
@@ -100,16 +88,13 @@ class Page(StructureComponent):
         self.title = title
         return changed
 
-    def unroll_path(self) -> List[int]:
-        return [self.id] + self.parent.unroll_path()
-
     def add_page(self, text_buffer: Gtk.TextBuffer, title: str = DEFAULT_PAGE_NAME) -> 'Page':
         """ Creates a new sub-page, with this page as a parent
         :param text_buffer: The TextBuffer associated with this page
         :param title: The title of the new page
         :return: The new page created
         """
-        page = Page(self, title)
+        page = Page(self.id, title)
         if title is not None:
             page.set_title(title)
         self.sub_pages[page.id] = page
@@ -138,8 +123,40 @@ class Page(StructureComponent):
         :param other: The other Page to compare
         :return: True if the Pages are equal, False otherwise
         """
-        return type(self) is type(other) and len(self.sub_pages) == len(other.sub_pages) and all(
-            child1 == child2 for child1, child2 in zip(self.all_children(), other.all_children()))
+        if type(self) is not type(other) or len(self.sub_pages) != len(other.sub_pages):
+            return False
+        for attr1, attr2 in zip([self.id, self.title, self._extract_text()] + self.all_children(),
+                                [other.id, other.title, other._extract_text()] + other.all_children()):
+            if attr1 != attr2:
+                return False
+        return True
+
+    def __deepcopy__(self, memodict=None) -> 'Page':
+        new_buf = Gtk.TextBuffer()
+        new_buf.set_text(self._extract_text())
+        new_page = Page(self.parent, new_buf, self.title)
+        old_time = self.creation_time
+        items = vars(self).items()
+        for attr, val in items:
+            if attr not in ('text_buffer', 'parent'):
+                new_page.__setattr__(attr, copy.deepcopy(val))
+        new_page.creation_time = old_time
+        return new_page
+
+    def _extract_text(self) -> Tuple[Any, str]:
+        """ Extracts the text from self.text_buffer
+        :return: A serialized version of the text in self.text_buffer
+        """
+        start, end = self.text_buffer.get_bounds()
+        return self.text_buffer.get_text(start, end, True)
+
+    def set_text(self, text: str) -> bool:
+        """ Sets the text of this Page's text_buffer
+        :param text: The text to set
+        :return: True if successful, False otherwise
+        """
+        self.text_buffer.set_text(text)
+        return True
 
 
 class Tab(StructureComponent):
@@ -164,7 +181,7 @@ class Tab(StructureComponent):
         :param title: The title of the new page
         :return: The new page created
         """
-        new_page = Page(self, text_buffer, title)
+        new_page = Page(self.id, text_buffer, title)
         self.pages[new_page.id] = new_page
         return new_page
 
@@ -200,8 +217,13 @@ class Tab(StructureComponent):
         :param other: The other Tab to compare
         :return: True if these Tabs are equal, False otherwise
         """
-        return type(self) is type(other) and self.name == other.name and self.id == other.id and all(
-            child1 == child2 for child1, child2 in zip(self.all_children(), other.all_children()))
+        if type(self) is not type(other) or len(self.pages) != len(other.pages):
+            return False
+        for attr1, attr2 in zip([self.name, self.id] + self.all_children(),
+                                [other.name, other.id] + other.all_children()):
+            if attr1 != attr2:
+                return False
+        return True
 
 
 class StructureManager:
@@ -233,8 +255,7 @@ class StructureManager:
         return tab
 
     def new_page(self, parent: StructureComponent, text_buffer: Gtk.TextBuffer, title: str = DEFAULT_PAGE_NAME) -> Page:
-        """
-        Creates a new page at the specified path
+        """ Creates a new page at the specified path
         :param text_buffer: The TextBuffer associated with the new page
         :param parent: The component under which to add the new page
         :param title: The title of the new page
@@ -256,14 +277,13 @@ class StructureManager:
         """
         component = self.get_component(_id)
         if component.parent is not None:
-            component.parent.remove(_id)
+            self.get_component(component.parent).remove(_id)
         for child_id in self.components[_id].all_children():
             del self.components[child_id]
         del self.components[_id]
 
     def get_component(self, _id: int) -> StructureComponent:
-        """
-        Searches for a component by _id number
+        """ Searches for a component by _id number
         :param _id: The _id to search for
         :except KeyError: If _id is not associated with some component in the structure
         :return: The component associated with the given _id
@@ -286,6 +306,18 @@ class StructureManager:
         :param other: The other StructureManager to compare to
         :return: True if all fields of this and other are equal
         """
-        return len(self.components) != len(other.components) and all(
+        return len(self.components) == len(other.components) and all(
             self.get_component(id1) == other.get_component(id2) for id1, id2 in
             zip(self.components.keys(), other.components.keys())) and self.path == other.path
+
+    def unroll_path(self, _id: int) -> List[int]:
+        """ Unrolls the path of a component
+        :param _id: The id of the component
+        :return: The path from component to root
+        """
+        comp = self.get_component(_id)
+        path = [comp.id]
+        while type(comp) is not Tab:
+            comp = self.get_component(comp.parent)
+            path.append(comp.id)
+        return path
