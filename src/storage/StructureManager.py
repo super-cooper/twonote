@@ -1,9 +1,10 @@
 import copy
+import pickle
 import threading
 import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List
 
 import gi
 
@@ -94,7 +95,7 @@ class Page(StructureComponent):
         :param title: The title of the new page
         :return: The new page created
         """
-        page = Page(self.id, title)
+        page = Page(self.id, text_buffer, title)
         if title is not None:
             page.set_title(title)
         self.sub_pages[page.id] = page
@@ -125,15 +126,15 @@ class Page(StructureComponent):
         """
         if type(self) is not type(other) or len(self.sub_pages) != len(other.sub_pages):
             return False
-        for attr1, attr2 in zip([self.id, self.title, self._extract_text()] + self.all_children(),
-                                [other.id, other.title, other._extract_text()] + other.all_children()):
+        for attr1, attr2 in zip([self.id, self.title, self.extract_text()] + self.all_children(),
+                                [other.id, other.title, other.extract_text()] + other.all_children()):
             if attr1 != attr2:
                 return False
         return True
 
     def __deepcopy__(self, memodict=None) -> 'Page':
         new_buf = Gtk.TextBuffer()
-        new_buf.set_text(self._extract_text())
+        new_buf.set_text(self.extract_text())
         new_page = Page(self.parent, new_buf, self.title)
         old_time = self.creation_time
         items = vars(self).items()
@@ -143,7 +144,7 @@ class Page(StructureComponent):
         new_page.creation_time = old_time
         return new_page
 
-    def _extract_text(self) -> Tuple[Any, str]:
+    def extract_text(self) -> str:
         """ Extracts the text from self.text_buffer
         :return: A serialized version of the text in self.text_buffer
         """
@@ -321,3 +322,38 @@ class StructureManager:
             comp = self.get_component(comp.parent)
             path.append(comp.id)
         return path
+
+    @staticmethod
+    def persist(structure_manager: 'StructureManager', f_name: str) -> bool:
+        """ Persists this StructureManager to disk using a Pickler
+        :param structure_manager: The StructureManager to persist
+        :param f_name: The name of the file to be saved
+        :return: True if successfully persisted, False otherwise
+        """
+        _copy = copy.deepcopy(structure_manager)
+        for _id in _copy.components.keys():
+            comp = _copy.get_component(_id)
+            if type(comp) is Page:
+                comp.text_buffer = comp.extract_text()
+        with open(f_name, 'wb') as file:
+            pickle.dump(_copy, file)
+        return True
+
+    @staticmethod
+    def load_from_disk(f_name: str) -> 'StructureManager':
+        """ Loads a StructureManager from a pickle file
+        :param f_name: The name of the pickle file to load from
+        :raise TypeError: If the given pickle file does not represent a StructureManager
+        :return: A StructureManager restored from the pickle file
+        """
+        with open(f_name, 'rb') as file:
+            sm = pickle.load(file)
+        if type(sm) is not StructureManager:
+            raise TypeError("Loaded file is not a StructureManager!")
+        for _id in sm.components.keys():
+            comp = sm.get_component(_id)
+            if type(comp) is Page:
+                text = comp.text_buffer
+                comp.text_buffer = Gtk.TextBuffer()
+                comp.set_text(text)
+        return sm

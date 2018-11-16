@@ -10,6 +10,7 @@ from gi.repository import Gtk
 from storage.StructureManager import *
 
 TEST_PATH = '/tmp/TestNotebook/'
+TEST_PICKLE = 'nb.pkl'
 
 
 class StructureManagerTest(unittest.TestCase):
@@ -22,6 +23,8 @@ class StructureManagerTest(unittest.TestCase):
     def tearDown(self):
         if os.path.exists(TEST_PATH):
             shutil.rmtree(TEST_PATH)
+        if os.path.exists(TEST_PICKLE):
+            os.remove(TEST_PICKLE)
 
     def test_new_tab(self):
         tab = self.structure_manager.new_tab('Test Tab')
@@ -76,3 +79,19 @@ class StructureManagerTest(unittest.TestCase):
                         "StructureManagers with different paths considered equal")
         _copy.new_page(page, Gtk.TextBuffer())
         self.assertTrue(self.structure_manager != _copy, "Different populated StructureManagers considered equal")
+
+    def test_persist(self):
+        StructureManager.persist(self.structure_manager, TEST_PICKLE)
+        self.assertEqual(StructureManager.load_from_disk(TEST_PICKLE), self.structure_manager,
+                         "Empty StructureManager pickle not equal")
+        tab = self.structure_manager.new_tab()
+        page = self.structure_manager.new_page(tab, Gtk.TextBuffer())
+        self.structure_manager.new_page(page, Gtk.TextBuffer())
+        StructureManager.persist(self.structure_manager, TEST_PICKLE)
+        self.assertEqual(StructureManager.load_from_disk(TEST_PICKLE), self.structure_manager,
+                         "Filled StructureManager pickle not equal")
+        with open("test", "wb") as f:
+            pickle.dump({'hello': 0}, f)
+        self.assertRaises(StructureManager.load_from_disk("test"), TypeError,
+                          "Loading invalid pickle does not raise TypeError")
+        os.remove("test")
