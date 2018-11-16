@@ -52,6 +52,10 @@ class StructureComponent(ABC):
     def all_children(self) -> List[int]:
         pass
 
+    @abstractmethod
+    def __eq__(self, other: 'StructureComponent') -> bool:
+        pass
+
 
 class Page(StructureComponent):
     """
@@ -182,6 +186,14 @@ class Tab(StructureComponent):
             accumulator.append(child_id)
             accumulator += self.pages[child_id].all_children()
         return accumulator
+
+    def __eq__(self, other: 'Tab') -> bool:
+        """ Tells if a Tab is equal to another by attributes and structure
+        :param other: The other Tab to compare
+        :return: True if these Tabs are equal, False otherwise
+        """
+        return type(self) is type(other) and self.name == other.name and self.id == other.id and all(
+            child1 == child2 for child1, child2 in zip(self.all_children(), other.all_children()))
 
 
 class StructureManager:
