@@ -133,6 +133,14 @@ class Page(StructureComponent):
             accumulator += self.sub_pages[child_id].all_children()
         return accumulator
 
+    def __eq__(self, other: 'Page') -> bool:
+        """ Tells if this Page is equal to another in attributes and structure
+        :param other: The other Page to compare
+        :return: True if the Pages are equal, False otherwise
+        """
+        return type(self) is type(other) and len(self.sub_pages) == len(other.sub_pages) and all(
+            child1 == child2 for child1, child2 in zip(self.all_children(), other.all_children()))
+
 
 class Tab(StructureComponent):
     """
