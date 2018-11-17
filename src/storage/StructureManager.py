@@ -310,6 +310,12 @@ class StructureManager:
             path.append(comp.id)
         return path
 
+    def save(self) -> bool:
+        """ Saves this StructureManager to disk
+        :return: Result of call to StructureManager.persist(self, self.path)
+        """
+        return StructureManager.persist(self, self.path)
+
     @staticmethod
     def persist(structure_manager: 'StructureManager', f_name: str) -> bool:
         """ Persists this StructureManager to disk using a Pickler
