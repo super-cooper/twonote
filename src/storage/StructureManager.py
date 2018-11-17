@@ -6,11 +6,6 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Dict, List
 
-import gi
-
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
-
 DEFAULT_PAGE_NAME = 'Untitled Page'
 
 
@@ -36,7 +31,7 @@ class StructureComponent(ABC):
         self.parent: int = None
 
     @abstractmethod
-    def add_page(self, text_buffer: Gtk.TextBuffer, title: str = None) -> 'Page':
+    def add_page(self, text_buffer: str, title: str = None) -> 'Page':
         pass
 
     @abstractmethod
@@ -59,7 +54,7 @@ class Page(StructureComponent):
     Unfolding the hierarchy of pages should be done depth-first
     """
 
-    def __init__(self, parent: int, text_buffer: Gtk.TextBuffer, title: str = 'Untitled Page'):
+    def __init__(self, parent: int, text_buffer: str, title: str = 'Untitled Page'):
         """ Constructor
         :param title: The title of this new Page
         """
@@ -71,7 +66,7 @@ class Page(StructureComponent):
         # Title of this page
         self.title = title
         # The text buffer holding the text contents of the page
-        self.text_buffer: Gtk.TextBuffer = text_buffer
+        self.text_buffer: str = text_buffer
 
     def is_leaf(self) -> bool:
         """ Tells if this page has any sub-pages
@@ -89,7 +84,7 @@ class Page(StructureComponent):
         self.title = title
         return changed
 
-    def add_page(self, text_buffer: Gtk.TextBuffer, title: str = DEFAULT_PAGE_NAME) -> 'Page':
+    def add_page(self, text_buffer: str, title: str = DEFAULT_PAGE_NAME) -> 'Page':
         """ Creates a new sub-page, with this page as a parent
         :param text_buffer: The TextBuffer associated with this page
         :param title: The title of the new page
@@ -126,38 +121,30 @@ class Page(StructureComponent):
         """
         if type(self) is not type(other) or len(self.sub_pages) != len(other.sub_pages):
             return False
-        for attr1, attr2 in zip([self.id, self.title, self.extract_text()] + self.all_children(),
-                                [other.id, other.title, other.extract_text()] + other.all_children()):
+        for attr1, attr2 in zip([self.id, self.title, self.text_buffer] + self.all_children(),
+                                [other.id, other.title, self.text_buffer] + other.all_children()):
             if attr1 != attr2:
                 return False
         return True
 
     def __deepcopy__(self, memodict=None) -> 'Page':
-        new_buf = Gtk.TextBuffer()
-        new_buf.set_text(self.extract_text())
-        new_page = Page(self.parent, new_buf, self.title)
+        new_page = Page(self.parent, self.text_buffer, self.title)
         old_time = self.creation_time
         items = vars(self).items()
         for attr, val in items:
-            if attr not in ('text_buffer', 'parent'):
+            if attr != 'parent':
                 new_page.__setattr__(attr, copy.deepcopy(val))
         new_page.creation_time = old_time
         return new_page
 
-    def extract_text(self) -> str:
-        """ Extracts the text from self.text_buffer
-        :return: A serialized version of the text in self.text_buffer
-        """
-        start, end = self.text_buffer.get_bounds()
-        return self.text_buffer.get_text(start, end, True)
-
     def set_text(self, text: str) -> bool:
         """ Sets the text of this Page's text_buffer
         :param text: The text to set
-        :return: True if successful, False otherwise
+        :return: True if buffer was changed, false otherwise
         """
-        self.text_buffer.set_text(text)
-        return True
+        no_change = self.text_buffer == text
+        self.text_buffer = text
+        return no_change
 
 
 class Tab(StructureComponent):
@@ -176,7 +163,7 @@ class Tab(StructureComponent):
         # dict of all top-level pages as {_id: Page}
         self.pages: Dict[int, Page] = OrderedDict()
 
-    def add_page(self, text_buffer: Gtk.TextBuffer, title: str = DEFAULT_PAGE_NAME) -> Page:
+    def add_page(self, text_buffer: str, title: str = DEFAULT_PAGE_NAME) -> Page:
         """ Adds a new page under this Tab
         :param text_buffer: The TextBuffer associated with this page
         :param title: The title of the new page
@@ -189,7 +176,7 @@ class Tab(StructureComponent):
     def set_name(self, name: str) -> bool:
         """ Sets the name of this Tab to a new name
         :param name:
-        :return:
+        :return: True if the name was changed, False otherwise
         """
         changed = self.name == name
         self.name = name
@@ -255,7 +242,7 @@ class StructureManager:
         self.components[tab.id] = tab
         return tab
 
-    def new_page(self, parent: StructureComponent, text_buffer: Gtk.TextBuffer, title: str = DEFAULT_PAGE_NAME) -> Page:
+    def new_page(self, parent: StructureComponent, text_buffer: str, title: str = DEFAULT_PAGE_NAME) -> Page:
         """ Creates a new page at the specified path
         :param text_buffer: The TextBuffer associated with the new page
         :param parent: The component under which to add the new page
@@ -331,10 +318,6 @@ class StructureManager:
         :return: True if successfully persisted, False otherwise
         """
         _copy = copy.deepcopy(structure_manager)
-        for _id in _copy.components.keys():
-            comp = _copy.get_component(_id)
-            if type(comp) is Page:
-                comp.text_buffer = comp.extract_text()
         with open(f_name, 'wb') as file:
             pickle.dump(_copy, file)
         return True
@@ -350,10 +333,4 @@ class StructureManager:
             sm = pickle.load(file)
         if type(sm) is not StructureManager:
             raise TypeError("Loaded file is not a StructureManager!")
-        for _id in sm.components.keys():
-            comp = sm.get_component(_id)
-            if type(comp) is Page:
-                text = comp.text_buffer
-                comp.text_buffer = Gtk.TextBuffer()
-                comp.set_text(text)
         return sm
