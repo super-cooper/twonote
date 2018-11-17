@@ -1,4 +1,4 @@
-import gi
+import gi, signal
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Pango
 
@@ -31,11 +31,16 @@ class Handler:
         old_pos = new_pos
 
 
+def bind_accelerator(accelerators, widget, accelerator, signal='clicked'):
+    key, mod = Gtk.accelerator_parse(accelerator)
+    widget.add_accelerator(signal, accelerators, key, mod, Gtk.AccelFlags.VISIBLE)
 
+def on_recompute_base_encryption_key_hash(widget):
+    print ("Thinking... (This could take forever)")
 
 
 builder = Gtk.Builder()
-builder.add_from_file("/home/thomas/Documents/TestNotepad2.glade")
+builder.add_from_file("./TestNotepad2.glade")
 textview = builder.get_object("textview")
 buffer = textview.get_buffer()
 font_chooser = builder.get_object("font_chooser")
@@ -53,7 +58,24 @@ buffer.create_mark("old_pos", buffer.get_iter_at_mark(buffer.get_insert()), True
 builder.connect_signals(Handler())
 buffer.connect("insert-text", Handler.edit_input)
 
-window = builder.get_object("MainWindow")
+#######
+#window = builder.get_object("MainWindow")
+
+window = Gtk.Window()
+
+accelerators = Gtk.AccelGroup()
+window.add_accel_group(accelerators)
+
+# Widget
+target_widget = Gtk.Button('Recompute Base Encryption Key Hash')
+target_widget.connect('clicked', on_recompute_base_encryption_key_hash)
+window.add(target_widget)
+
+# Bind
+bind_accelerator(accelerators, target_widget, '<Control>b')
+
+
 window.show_all()
 
+signal.signal(signal.SIGINT, signal.SIG_DFL)
 Gtk.main()
