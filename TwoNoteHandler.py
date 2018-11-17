@@ -59,6 +59,7 @@ builder.connect_signals(Handler())
 buffer.connect("insert-text", Handler.edit_input)
 
 #######
+
 #window = builder.get_object("MainWindow")
 
 window = Gtk.Window()
@@ -67,13 +68,18 @@ accelerators = Gtk.AccelGroup()
 window.add_accel_group(accelerators)
 
 # Widget
-target_widget = Gtk.Button('Recompute Base Encryption Key Hash')
-target_widget.connect('clicked', on_recompute_base_encryption_key_hash)
-window.add(target_widget)
+#target_widget = Gtk.Button('Recompute Base Encryption Key Hash')
+#target_widget.connect('clicked', on_recompute_base_encryption_key_hash)
+#window.add(target_widget)
 
 # Bind
-bind_accelerator(accelerators, target_widget, '<Control>b')
+bind_accelerator(accelerators, tag_bold, '<Control>b')
 
+vbox = Gtk.VBox()
+window.add(vbox)
+
+vbox.pack_start(builder.get_object("MainWindow"),True,True,0)
+vbox.pack_start(target_widget,True,True,0)
 
 window.show_all()
 
