@@ -7,7 +7,7 @@
     <property name="border_width">6</property>
     <property name="default_width">690</property>
     <property name="default_height">588</property>
-    <signal name="destroy" handler="gtk_main_quit" swapped="no"/>
+    <signal name="destroy" handler="close" swapped="no"/>
     <child>
       <placeholder/>
     </child>
@@ -84,7 +84,6 @@
                         <property name="can_focus">False</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
-                        <signal name="select" handler="new_clicked" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -299,6 +298,70 @@
               <object class="GtkToolbar">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkRadioToolButton" id="left">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">left</property>
+                    <property name="use_underline">True</property>
+                    <property name="stock_id">gtk-justify-left</property>
+                    <property name="active">True</property>
+                    <signal name="clicked" handler="change_justification_helper" swapped="no"/>
+                    <signal name="toggled" handler="change_justification" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="homogeneous">True</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkRadioToolButton" id="center">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">center</property>
+                    <property name="use_underline">True</property>
+                    <property name="stock_id">gtk-justify-center</property>
+                    <property name="active">True</property>
+                    <property name="group">left</property>
+                    <signal name="toggled" handler="change_justification" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="homogeneous">True</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkRadioToolButton" id="right">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">right</property>
+                    <property name="use_underline">True</property>
+                    <property name="stock_id">gtk-justify-right</property>
+                    <property name="active">True</property>
+                    <property name="group">center</property>
+                    <signal name="toggled" handler="change_justification" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="homogeneous">True</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkRadioToolButton" id="fill">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label" translatable="yes">fill</property>
+                    <property name="use_underline">True</property>
+                    <property name="stock_id">gtk-justify-fill</property>
+                    <property name="active">True</property>
+                    <property name="group">right</property>
+                    <signal name="toggled" handler="change_justification" swapped="no"/>
+                  </object>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="homogeneous">True</property>
+                  </packing>
+                </child>
               </object>
               <packing>
                 <property name="expand">False</property>
