@@ -16,23 +16,18 @@ class StructureComponent(ABC):
 
     # global condition variable used to prevent concurrent component creation and _id overlap
     _component_create = threading.Condition(lock=threading.RLock())
-    # global static identifier for new components
-    _component_count = 0
 
-    def __init__(self):
+    def __init__(self, _id: int):
         """ Constructor
         """
         # GMT Unix time at which the page was created
         self.creation_time: int = time.time()
-        StructureComponent._component_create.acquire()
         # unique ID to use as constant time reference to this page
-        self.id: int = StructureComponent._component_count
-        StructureComponent._component_count += 1
-        StructureComponent._component_create.release()
+        self.id: int = _id
         self.parent: int = None
 
     @abstractmethod
-    def add_page(self, text_buffer: str, title: str = None) -> 'Page':
+    def add_page(self, text_buffer: str, _id: int, title: str = None) -> 'Page':
         pass
 
     @abstractmethod
@@ -55,11 +50,11 @@ class Page(StructureComponent):
     Unfolding the hierarchy of pages should be done depth-first
     """
 
-    def __init__(self, parent: int, text_buffer: str, title: str = 'Untitled Page'):
+    def __init__(self, parent: int, text_buffer: str, _id: int, title: str = 'Untitled Page'):
         """ Constructor
         :param title: The title of this new Page
         """
-        super().__init__()
+        super().__init__(_id)
         # List of sub-pages owned by this page organized as {_id: Page}
         self.sub_pages: Dict[int, Page] = OrderedDict()
         # Pointer to the parent of this page
@@ -85,13 +80,14 @@ class Page(StructureComponent):
         self.title = title
         return changed
 
-    def add_page(self, text_buffer: str, title: str = DEFAULT_PAGE_NAME) -> 'Page':
+    def add_page(self, text_buffer: str, _id: int, title: str = DEFAULT_PAGE_NAME) -> 'Page':
         """ Creates a new sub-page, with this page as a parent
+        :param _id: The ID of the new page
         :param text_buffer: The TextBuffer associated with this page
         :param title: The title of the new page
         :return: The new page created
         """
-        page = Page(self.id, text_buffer, title)
+        page = Page(self.id, text_buffer, _id, title)
         if title is not None:
             page.set_title(title)
         self.sub_pages[page.id] = page
@@ -129,7 +125,7 @@ class Page(StructureComponent):
         return True
 
     def __deepcopy__(self, memodict=None) -> 'Page':
-        new_page = Page(self.parent, self.text_buffer, self.title)
+        new_page = Page(self.parent, self.text_buffer, self.id, self.title)
         old_time = self.creation_time
         items = vars(self).items()
         for attr, val in items:
@@ -154,23 +150,24 @@ class Tab(StructureComponent):
     Maintains a list of top-level pages, each of which may manage infinite sub-pages
     """
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, _id: int):
         """ Constructor
         :param name: The name of this new Tab
         """
-        super().__init__()
+        super().__init__(_id)
         # name of this tab
         self.name: str = name
         # dict of all top-level pages as {_id: Page}
         self.pages: Dict[int, Page] = OrderedDict()
 
-    def add_page(self, text_buffer: str, title: str = DEFAULT_PAGE_NAME) -> Page:
+    def add_page(self, text_buffer: str, _id: int, title: str = DEFAULT_PAGE_NAME) -> Page:
         """ Adds a new page under this Tab
+        :param _id: The ID of the new page
         :param text_buffer: The TextBuffer associated with this page
         :param title: The title of the new page
         :return: The new page created
         """
-        new_page = Page(self.id, text_buffer, title)
+        new_page = Page(self.id, text_buffer, _id, title)
         self.pages[new_page.id] = new_page
         return new_page
 
@@ -232,6 +229,8 @@ class StructureManager:
         self.components: Dict[int, StructureComponent] = OrderedDict()
         # path is a string that stores the root of the notebook in the filesystem
         self.path = path
+        # identifier for new components
+        self._component_count = 0
 
     def new_tab(self, name: str = None) -> Tab:
         """ Creates a new Tab in this notebook
@@ -239,7 +238,10 @@ class StructureManager:
         :return: The new Tab created
         """
         self._total_tabs += 1
-        tab = Tab(name if name is not None else "Tab " + str(self._total_tabs))
+        StructureComponent._component_create.acquire()
+        tab = Tab(name if name is not None else "Tab " + str(self._total_tabs), self._component_count)
+        self._component_count += 1
+        StructureComponent._component_create.release()
         self.components[tab.id] = tab
         return tab
 
@@ -255,7 +257,10 @@ class StructureManager:
             raise ValueError("Cannot insert pages if no tabs exist")
         if parent.id not in self:
             raise ValueError(f"Cannot insert pages as child of component not in structure. Parent ID: {parent.id}")
-        page = parent.add_page(text_buffer, title)
+        StructureComponent._component_create.acquire()
+        page = parent.add_page(text_buffer, self._component_count, title)
+        self._component_count += 1
+        StructureComponent._component_create.release()
         self.components[page.id] = page
         return page
 
@@ -332,20 +337,20 @@ class StructureManager:
         with open(f_name, 'wb') as file:
             pickle.dump(_copy, file)
         with open('id', 'wb') as file:
-            pickle.dump(StructureComponent._component_count, file)
+            pickle.dump(structure_manager._component_count, file)
         return True
 
     @staticmethod
-    def load_from_disk(f_name: str) -> 'StructureManager':
+    def load_from_disk(path: str) -> 'StructureManager':
         """ Loads a StructureManager from a pickle file
-        :param f_name: The name of the pickle file to load from
+        :param path: The path of the pickle file to load from
         :raise TypeError: If the given pickle file does not represent a StructureManager
         :return: A StructureManager restored from the pickle file
         """
-        with open(f_name, 'rb') as file:
+        with open(path, 'rb') as file:
             sm = pickle.load(file)
         with open(ID_FILE_NAME, 'rb') as file:
-            StructureComponent._component_count = int(pickle.load(file))
+            sm._component_count = int(pickle.load(file))
         if type(sm) is not StructureManager:
-            raise TypeError(f"Loaded file {f_name} is not a StructureManager!")
+            raise TypeError(f"Loaded file {path} is not a StructureManager!")
         return sm
