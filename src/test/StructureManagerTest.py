@@ -1,4 +1,3 @@
-import os
 import random
 import shutil
 import string
@@ -7,7 +6,7 @@ import unittest
 from storage.StructureManager import *
 
 TEST_PATH = '/tmp/TestNotebook/'
-TEST_PICKLE = 'nb.pkl'
+TEST_PICKLE = 'nb.tnb'
 RAND_INPUT_UPPER_BOUND = 10000
 RAND_INPUT_LOWER_BOUND = 0
 STRING_CHOICES = string.ascii_letters + string.digits + string.punctuation + string.whitespace
@@ -87,17 +86,18 @@ class StructureManagerTest(unittest.TestCase):
         self.assertTrue(self.structure_manager != _copy, "Different populated StructureManagers considered equal")
 
     def test_persist(self):
+        nb = os.path.join(TEST_PATH, TEST_PICKLE)
         StructureManager.persist(self.structure_manager, TEST_PICKLE)
-        self.assertEqual(StructureManager.load_from_disk(TEST_PICKLE), self.structure_manager,
+        self.assertEqual(StructureManager.load_from_disk(nb), self.structure_manager,
                          "Empty StructureManager pickle not equal")
         tab = self.structure_manager.new_tab()
         page = self.structure_manager.new_page(tab, rand_input())
         self.structure_manager.new_page(page, rand_input())
         StructureManager.persist(self.structure_manager, TEST_PICKLE)
-        self.assertEqual(StructureManager.load_from_disk(TEST_PICKLE), self.structure_manager,
+        self.assertEqual(StructureManager.load_from_disk(nb), self.structure_manager,
                          "Filled StructureManager pickle not equal")
-        with open(TEST_PICKLE, "wb") as f:
+        with open(nb, "wb") as f:
             pickle.dump({'hello': 0}, f)
         with self.assertRaises(TypeError, msg="Loading invalid pickle does not raise TypeError"):
-            StructureManager.load_from_disk(TEST_PICKLE)
-        os.remove(TEST_PICKLE)
+            StructureManager.load_from_disk(nb)
+        os.remove(nb)

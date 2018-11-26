@@ -1,4 +1,5 @@
 import copy
+import os
 import pickle
 import threading
 import time
@@ -7,7 +8,6 @@ from collections import OrderedDict
 from typing import Dict, List
 
 DEFAULT_PAGE_NAME = 'Untitled Page'
-ID_FILE_NAME = 'id'
 
 
 class StructureComponent(ABC):
@@ -229,6 +229,8 @@ class StructureManager:
         self.components: Dict[int, StructureComponent] = OrderedDict()
         # path is a string that stores the root of the notebook in the filesystem
         self.path = path
+        if not os.path.exists(path):
+            os.mkdir(path)
         # identifier for new components
         self._component_count = 0
 
@@ -316,11 +318,12 @@ class StructureManager:
             path.append(comp.id)
         return path
 
-    def save(self) -> bool:
+    def save(self, f_name: str) -> bool:
         """ Saves this StructureManager to disk
+        :param f_name: The name of the file to save this StructureManager to
         :return: Result of call to StructureManager.persist(self, self.path)
         """
-        return StructureManager.persist(self, self.path)
+        return StructureManager.persist(self, f_name)
 
     @staticmethod
     def persist(structure_manager: 'StructureManager', f_name: str) -> bool:
@@ -329,15 +332,11 @@ class StructureManager:
         :param f_name: The name of the file to be saved
         :return: True if successfully persisted, False otherwise
         """
-        if f_name == ID_FILE_NAME:
-            f_name += '-notebook'
         if not f_name.endswith('.tnb'):
             f_name += '.tnb'
         _copy = copy.deepcopy(structure_manager)
-        with open(f_name, 'wb') as file:
+        with open(os.path.join(structure_manager.path, f_name), 'wb') as file:
             pickle.dump(_copy, file)
-        with open('id', 'wb') as file:
-            pickle.dump(structure_manager._component_count, file)
         return True
 
     @staticmethod
@@ -349,8 +348,6 @@ class StructureManager:
         """
         with open(path, 'rb') as file:
             sm = pickle.load(file)
-        with open(ID_FILE_NAME, 'rb') as file:
-            sm._component_count = int(pickle.load(file))
         if type(sm) is not StructureManager:
             raise TypeError(f"Loaded file {path} is not a StructureManager!")
         return sm
