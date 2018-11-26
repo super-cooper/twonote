@@ -7,6 +7,7 @@ from collections import OrderedDict
 from typing import Dict, List
 
 DEFAULT_PAGE_NAME = 'Untitled Page'
+ID_FILE_NAME = 'id'
 
 
 class StructureComponent(ABC):
@@ -323,9 +324,15 @@ class StructureManager:
         :param f_name: The name of the file to be saved
         :return: True if successfully persisted, False otherwise
         """
+        if f_name == ID_FILE_NAME:
+            f_name += '-notebook'
+        if not f_name.endswith('.tnb'):
+            f_name += '.tnb'
         _copy = copy.deepcopy(structure_manager)
         with open(f_name, 'wb') as file:
             pickle.dump(_copy, file)
+        with open('id', 'wb') as file:
+            pickle.dump(StructureComponent._component_count, file)
         return True
 
     @staticmethod
@@ -337,6 +344,8 @@ class StructureManager:
         """
         with open(f_name, 'rb') as file:
             sm = pickle.load(file)
+        with open(ID_FILE_NAME, 'rb') as file:
+            StructureComponent._component_count = int(pickle.load(file))
         if type(sm) is not StructureManager:
-            raise TypeError("Loaded file is not a StructureManager!")
+            raise TypeError(f"Loaded file {f_name} is not a StructureManager!")
         return sm
