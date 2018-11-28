@@ -60,9 +60,9 @@ buffer.connect("insert-text", Handler.edit_input)
 
 #######
 
-#window = builder.get_object("MainWindow")
+window = builder.get_object("MainWindow")
 
-window = Gtk.Window()
+#window = Gtk.Window()
 
 accelerators = Gtk.AccelGroup()
 window.add_accel_group(accelerators)
