@@ -42,27 +42,25 @@ class StructureManagerTest(unittest.TestCase):
             tab1 = self.structure_manager.new_tab()
             tab2 = self.structure_manager.new_tab()
             self.structure_manager.remove_component(tab1.id)
-            self.structure_manager.new_page(tab1,
-                                            rand_input())
+            self.structure_manager.new_page(tab1)
             self.structure_manager.remove_component(tab2.id)
-            self.structure_manager.new_page(tab1,
-                                            rand_input())
+            self.structure_manager.new_page(tab1)
 
     def test_new_page(self):
         tab = self.structure_manager.new_tab('Test')
-        page = self.structure_manager.new_page(tab, rand_input())
+        page = self.structure_manager.new_page(tab)
         self.assertEqual([page.id, tab.id], self.structure_manager.unroll_path(page.id), "Initial new page incorrect")
         self.assertEqual(DEFAULT_PAGE_NAME, page.title, "Default page title incorrect")
         self.assertTrue(page.is_leaf(), "First page is not leaf")
-        sub_page = self.structure_manager.new_page(page, rand_input())
+        sub_page = self.structure_manager.new_page(page)
         self.assertEqual([sub_page.id, page.id, tab.id], self.structure_manager.unroll_path(sub_page.id),
                          "Document structure of sub-page not formed correctly")
 
     def test_remove_component(self):
         tab1 = self.structure_manager.new_tab()
         tab2 = self.structure_manager.new_tab()
-        page1 = self.structure_manager.new_page(tab1, rand_input())
-        page2 = self.structure_manager.new_page(tab2, rand_input())
+        page1 = self.structure_manager.new_page(tab1)
+        page2 = self.structure_manager.new_page(tab2)
         self.structure_manager.remove_component(page1.id)
         self.assertTrue(page1.id not in self.structure_manager, "Remove of single page unsuccessful")
         self.assertTrue(page1.id not in tab1.pages, "Remove of page from tab unsuccessful")
@@ -75,14 +73,14 @@ class StructureManagerTest(unittest.TestCase):
         _copy = copy.deepcopy(self.structure_manager)
         self.assertTrue(_copy == self.structure_manager, "Copied empty StructureManager is not equal")
         tab = self.structure_manager.new_tab()
-        page = self.structure_manager.new_page(tab, rand_input())
+        page = self.structure_manager.new_page(tab)
         _copy = copy.deepcopy(self.structure_manager)
         self.assertTrue(_copy == self.structure_manager, "Copied StructureManager is not equal")
         sm1 = StructureManager(TEST_PATH)
         self.assertTrue(sm1 != self.structure_manager, "Empty StructureManager is equal to non-empty StructureManager")
         self.assertTrue(StructureManager(TEST_PATH) != StructureManager(TEST_PATH + 'a'),
                         "StructureManagers with different paths considered equal")
-        _copy.new_page(page, rand_input())
+        _copy.new_page(page)
         self.assertTrue(self.structure_manager != _copy, "Different populated StructureManagers considered equal")
 
     def test_persist(self):
@@ -91,8 +89,8 @@ class StructureManagerTest(unittest.TestCase):
         self.assertEqual(StructureManager.load_from_disk(nb), self.structure_manager,
                          "Empty StructureManager pickle not equal")
         tab = self.structure_manager.new_tab()
-        page = self.structure_manager.new_page(tab, rand_input())
-        self.structure_manager.new_page(page, rand_input())
+        page = self.structure_manager.new_page(tab)
+        self.structure_manager.new_page(page)
         StructureManager.persist(self.structure_manager, TEST_PICKLE)
         self.assertEqual(StructureManager.load_from_disk(nb), self.structure_manager,
                          "Filled StructureManager pickle not equal")

@@ -7,11 +7,17 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Dict, List
 
+import gi
+
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk
+
 DEFAULT_PAGE_NAME = 'Untitled Page'
 
 
 class StructureComponent(ABC):
     """ Base class for notebook components containing methods that must be implemented
+    TODO add enum for determining type of StructureComponent
     """
 
     # global condition variable used to prevent concurrent component creation and _id overlap
@@ -27,7 +33,7 @@ class StructureComponent(ABC):
         self.parent: int = None
 
     @abstractmethod
-    def add_page(self, text_buffer: str, _id: int, title: str = None) -> 'Page':
+    def add_page(self, _id: int, title: str = None) -> 'Page':
         pass
 
     @abstractmethod
@@ -42,6 +48,9 @@ class StructureComponent(ABC):
     def __eq__(self, other: 'StructureComponent') -> bool:
         pass
 
+    def save_buffer(self, obj) -> str:
+        raise TypeError(f"Object does not have a buffer! (is of type {type(self)})")
+
 
 class Page(StructureComponent):
     """
@@ -50,7 +59,7 @@ class Page(StructureComponent):
     Unfolding the hierarchy of pages should be done depth-first
     """
 
-    def __init__(self, parent: int, text_buffer: str, _id: int, title: str = 'Untitled Page'):
+    def __init__(self, parent: int, _id: int, title: str = 'Untitled Page'):
         """ Constructor
         :param title: The title of this new Page
         """
@@ -60,15 +69,39 @@ class Page(StructureComponent):
         # Pointer to the parent of this page
         self.parent: int = parent
         # Title of this page
-        self.title = title
-        # The text buffer holding the text contents of the page
-        self.text_buffer: str = text_buffer
+        self.title: str = title
+        # name of text buffer on disk
+        self.file: str = self.title + f'-{self.id}.tbuf'
+        # boolean to tell if this page is active
+        self.active: bool = False
 
     def is_leaf(self) -> bool:
         """ Tells if this page has any sub-pages
         :return: True if this page has no sub-pages, False otherwise
         """
         return len(self.sub_pages) == 0
+
+    def is_active(self) -> bool:
+        """ Tells if this page is the active page
+        :return: True if this page is active, false otherwise
+        """
+        return self.active
+
+    def set_active(self) -> bool:
+        """ Sets this page to active
+        :return: True if the Page's active status was changed, False otherwise
+        """
+        prev = not self.active
+        self.active = True
+        return prev
+
+    def set_inactive(self) -> bool:
+        """ Sets this page to inactive
+        :return: True if this Page's active status was changed, False otherwise
+        """
+        prev = self.active
+        self.active = False
+        return prev
 
     def set_title(self, title: str) -> bool:
         """
@@ -80,14 +113,13 @@ class Page(StructureComponent):
         self.title = title
         return changed
 
-    def add_page(self, text_buffer: str, _id: int, title: str = DEFAULT_PAGE_NAME) -> 'Page':
+    def add_page(self, _id: int, title: str = None) -> 'Page':
         """ Creates a new sub-page, with this page as a parent
         :param _id: The ID of the new page
-        :param text_buffer: The TextBuffer associated with this page
         :param title: The title of the new page
         :return: The new page created
         """
-        page = Page(self.id, text_buffer, _id, title)
+        page = Page(self.id, _id, title)
         if title is not None:
             page.set_title(title)
         self.sub_pages[page.id] = page
@@ -118,30 +150,39 @@ class Page(StructureComponent):
         """
         if type(self) is not type(other) or len(self.sub_pages) != len(other.sub_pages):
             return False
-        for attr1, attr2 in zip([self.id, self.title, self.text_buffer] + self.all_children(),
-                                [other.id, other.title, self.text_buffer] + other.all_children()):
+        for attr1, attr2 in zip([self.id, self.title, self.file] + self.all_children(),
+                                [other.id, other.title, self.file] + other.all_children()):
             if attr1 != attr2:
                 return False
         return True
 
     def __deepcopy__(self, memodict=None) -> 'Page':
-        new_page = Page(self.parent, self.text_buffer, self.id, self.title)
-        old_time = self.creation_time
+        new_page = Page(self.parent, self.id, self.title)
         items = vars(self).items()
         for attr, val in items:
             if attr != 'parent':
                 new_page.__setattr__(attr, copy.deepcopy(val))
-        new_page.creation_time = old_time
         return new_page
 
-    def set_text(self, text: str) -> bool:
-        """ Sets the text of this Page's text_buffer
-        :param text: The text to set
-        :return: True if buffer was changed, false otherwise
+    def buffer_file(self) -> str:
+        """ Gets the name of the file that stores this Page's TextBuffer
+        :return: The name of the file that will be used to store a TextBuffer for this Page
         """
-        no_change = self.text_buffer == text
-        self.text_buffer = text
-        return no_change
+        return self.file
+
+    def save_buffer(self, buffer: Gtk.TextBuffer) -> str:
+        """ Saves a TextBuffer to disk
+        :param buffer: The buffer to be serialized
+        :return: The name of the file written to
+        """
+        if not self.is_active():
+            raise RuntimeError(f"The page requested to save is not active! ({self.id})")
+        start, end = buffer.get_bounds()
+        tags = buffer.register_serialize_tagset()
+        data = buffer.serialize(buffer, tags, start, end)
+        with open(self.file, 'wb') as file:
+            file.write(data)
+        return self.file
 
 
 class Tab(StructureComponent):
@@ -160,14 +201,13 @@ class Tab(StructureComponent):
         # dict of all top-level pages as {_id: Page}
         self.pages: Dict[int, Page] = OrderedDict()
 
-    def add_page(self, text_buffer: str, _id: int, title: str = DEFAULT_PAGE_NAME) -> Page:
+    def add_page(self, _id: int, title: str = None) -> Page:
         """ Adds a new page under this Tab
         :param _id: The ID of the new page
-        :param text_buffer: The TextBuffer associated with this page
         :param title: The title of the new page
         :return: The new page created
         """
-        new_page = Page(self.id, text_buffer, _id, title)
+        new_page = Page(self.id, _id, title)
         self.pages[new_page.id] = new_page
         return new_page
 
@@ -233,6 +273,8 @@ class StructureManager:
             os.mkdir(path)
         # identifier for new components
         self._component_count = 0
+        # Tracks the active page
+        self.active_page: int = None
 
     def new_tab(self, name: str = None) -> Tab:
         """ Creates a new Tab in this notebook
@@ -247,9 +289,8 @@ class StructureManager:
         self.components[tab.id] = tab
         return tab
 
-    def new_page(self, parent: StructureComponent, text_buffer: str, title: str = DEFAULT_PAGE_NAME) -> Page:
+    def new_page(self, parent: StructureComponent, title: str = DEFAULT_PAGE_NAME) -> Page:
         """ Creates a new page at the specified path
-        :param text_buffer: The TextBuffer associated with the new page
         :param parent: The component under which to add the new page
         :param title: The title of the new page
         :except ValueError: if the structure has no tabs, or the given parent is not in the structure
@@ -260,10 +301,13 @@ class StructureManager:
         if parent.id not in self:
             raise ValueError(f"Cannot insert pages as child of component not in structure. Parent ID: {parent.id}")
         StructureComponent._component_create.acquire()
-        page = parent.add_page(text_buffer, self._component_count, title)
+        page = parent.add_page(self._component_count, title)
         self._component_count += 1
         StructureComponent._component_create.release()
         self.components[page.id] = page
+        # Guarantee that the first created Page is active
+        if self.active_page is None:
+            self.active_page = page.id
         return page
 
     def remove_component(self, _id):
@@ -317,6 +361,25 @@ class StructureManager:
             comp = self.get_component(comp.parent)
             path.append(comp.id)
         return path
+
+    def set_active_page(self, _id: int) -> bool:
+        """ Sets the active page of this StructureManager
+        :param _id: The _id of the page to set active
+        :return: True if the active page was changed, False otherwise
+        """
+        val = _id == self.active_page
+        self.active_page = _id
+        return val
+
+    def save_page(self, text_buffer: Gtk.TextBuffer, page_id: int = None) -> str:
+        """ Saves a Page's TextBuffer to disk
+        :param page_id: The ID of the page the TextBuffer is associated with (default is active page)
+        :param text_buffer: The TextBuffer containing the Page's text
+        :return: The name of the file the text_buffer was saved to
+        """
+        if page_id is None:
+            page_id = self.active_page
+        return self.get_component(page_id).save_buffer(text_buffer)
 
     def save(self, f_name: str) -> bool:
         """ Saves this StructureManager to disk
