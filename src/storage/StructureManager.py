@@ -33,6 +33,7 @@ class StructureComponent(ABC):
         # unique ID to use as constant time reference to this page
         self.id: int = _id
         self.parent: int = None
+        self.name: str = None
 
     @abstractmethod
     def add_page(self, _id: int, git_hash: str, title: str = None) -> 'Page':
@@ -63,7 +64,7 @@ class Page(StructureComponent):
 
     def __init__(self, parent: int, _id: int, git_hash: str, title: str = 'Untitled Page'):
         """ Constructor
-        :param title: The title of this new Page
+        :param title: The name of this new Page
         """
         super().__init__(_id)
         # List of sub-pages owned by this page organized as {_id: Page}
@@ -71,9 +72,9 @@ class Page(StructureComponent):
         # Pointer to the parent of this page
         self.parent: int = parent
         # Title of this page
-        self.title: str = title
+        self.name: str = title
         # name of text buffer on disk
-        self.file: str = self.title + f'-{self.id}.tbuf'
+        self.file: str = self.name + f'-{self.id}.tbuf'
         # boolean to tell if this page is active
         self.active: bool = False
         # The git hash of this page's branch
@@ -109,19 +110,19 @@ class Page(StructureComponent):
 
     def set_title(self, title: str) -> bool:
         """
-        Sets a new title for this Page
-        :param title: The new title
-        :return: True if the title was changed, false otherwise
+        Sets a new name for this Page
+        :param title: The new name
+        :return: True if the name was changed, false otherwise
         """
-        changed = title == self.title
-        self.title = title
+        changed = title == self.name
+        self.name = title
         return changed
 
     def add_page(self, _id: int, git_hash: str, title: str = None) -> 'Page':
         """ Creates a new sub-page, with this page as a parent
         :param git_hash: The hash of the branch the page will live on
         :param _id: The ID of the new page
-        :param title: The title of the new page
+        :param title: The name of the new page
         :return: The new page created
         """
         page = Page(self.id, _id, git_hash, title)
@@ -155,15 +156,15 @@ class Page(StructureComponent):
         """
         if type(self) is not type(other) or len(self.sub_pages) != len(other.sub_pages):
             return False
-        # Only compare id, title, file name, and sub-pages
-        for attr1, attr2 in zip([self.id, self.title, self.file] + self.all_children(),
-                                [other.id, other.title, self.file] + other.all_children()):
+        # Only compare id, name, file name, and sub-pages
+        for attr1, attr2 in zip([self.id, self.name, self.file] + self.all_children(),
+                                [other.id, other.name, self.file] + other.all_children()):
             if attr1 != attr2:
                 return False
         return True
 
     def __deepcopy__(self, memodict=None) -> 'Page':
-        new_page = Page(self.parent, self.id, self.title)
+        new_page = Page(self.parent, self.id, self.name)
         items = vars(self).items()
         for attr, val in items:
             # Avoid infinitely recursive copy
@@ -212,7 +213,7 @@ class Tab(StructureComponent):
         """ Adds a new page under this Tab
         :param git_hash: The hash of the branch that the Page will live on
         :param _id: The ID of the new page
-        :param title: The title of the new page
+        :param title: The name of the new page
         :return: The new page created
         """
         new_page = Page(self.id, _id, git_hash, title)
@@ -287,10 +288,10 @@ class StructureManager:
         # The HistoryManager for this StructureManager
         self.history_manager = HistoryManager(path)
 
-    def new_tab(self, name: str = None) -> Tab:
+    def new_tab(self, name: str = None) -> int:
         """ Creates a new Tab in this notebook
         :param name: The name of the new Tab
-        :return: The new Tab created
+        :return: The ID of the new Tab created
         """
         self._total_tabs += 1
         # Ensure that no two tabs can have the same ID by acquiring a global lock
@@ -299,31 +300,31 @@ class StructureManager:
         self._component_count += 1
         StructureComponent._component_create.release()
         self.components[tab.id] = tab
-        return tab
+        return tab.id
 
-    def new_page(self, parent: StructureComponent, title: str = DEFAULT_PAGE_NAME) -> Page:
+    def new_page(self, parent_id: int, title: str = DEFAULT_PAGE_NAME) -> int:
         """ Creates a new page at the specified path
-        :param parent: The component under which to add the new page
-        :param title: The title of the new page
+        :param parent_id: The component id under which to add the new page
+        :param title: The name of the new page
         :except ValueError: if the structure has no tabs, or the given parent is not in the structure
-        :return: The new page that was created
+        :return: The ID of the new Page that was created
         """
         if len(self.components) == 0:
             raise ValueError("Cannot insert pages if no tabs exist")
-        if parent.id not in self:
-            raise ValueError(f"Cannot insert pages as child of component not in structure. Parent ID: {parent.id}")
+        if parent_id not in self:
+            raise ValueError(f"Cannot insert pages as child of component not in structure. Parent ID: {parent_id}")
         # Ensure that no two pages can have the same ID by acquiring a global lock
         StructureComponent._component_create.acquire()
-        page = parent.add_page(self._component_count, self.history_manager.new_branch(), title)
+        page = self.get_component(parent_id).add_page(self._component_count, self.history_manager.new_branch(), title)
         self._component_count += 1
         StructureComponent._component_create.release()
         self.components[page.id] = page
         # Guarantee that the first created Page is active
         if self.active_page is None:
             self.active_page = page.id
-        return page
+        return page.id
 
-    def remove_component(self, _id):
+    def remove_component(self, _id: int) -> None:
         """ Removes a component from the structure
         :param _id: The ID of the component to be removed
         :except KeyError: If there is no component associated with _id
@@ -385,7 +386,7 @@ class StructureManager:
             raise TypeError(f"Component with id {_id} is not a Page object!")
         val = _id == self.active_page
         self.active_page = _id
-        self.history_manager.switch_branch(self._validate_page(_id).git_hash)
+        self.history_manager.switch_branch(self.get_as_page(_id).git_hash)
         return val
 
     def save_page(self, text_buffer: Gtk.TextBuffer, page_id: int = None) -> str:
@@ -396,7 +397,7 @@ class StructureManager:
         """
         if page_id is None:
             page_id = self.active_page
-        page = self._validate_page(page_id)
+        page = self.get_as_page(page_id)
         if not page.is_active():
             raise RuntimeError(f"Page with ID {page_id} is not active, and thus cannot be saved!")
         name = page.save_buffer(text_buffer)
@@ -437,7 +438,7 @@ class StructureManager:
             raise TypeError(f"Loaded file {path} is not a StructureManager!")
         return sm
 
-    def _validate_page(self, _id) -> Page:
+    def get_as_page(self, _id: int) -> Page:
         """ Guarantees that a StructureComponent is of type Page
         :param _id: The ID of the component to fetch
         :return: The component cast to type Page if it is a Page
@@ -446,4 +447,14 @@ class StructureManager:
         comp: Page = self.get_component(_id)
         if type(comp) is not Page:
             TypeError(f"Component with id {_id} is not Page object! (type {type(comp)})")
+        return comp
+
+    def get_as_tab(self, _id: int) -> Tab:
+        """ Gets the component and returns it as a Tab object
+        :param _id: The ID of the component to get
+        :return: The component linked to _id as a Tab object
+        """
+        comp: Tab = self.get_component(_id)
+        if type(comp) is not Tab:
+            TypeError(f"Component with id {_id} is not Tab object! (type {type(comp)})")
         return comp
