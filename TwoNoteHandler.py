@@ -3,7 +3,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Pango
 
 builder = Gtk.Builder()
-builder.add_from_file("/home/thomas/Documents/TestNotepad2.glade")
+builder.add_from_file("./TestNotepad2.glade")
 textview = builder.get_object("textview")
 buffer = textview.get_buffer()
 window = builder.get_object("MainWindow")
@@ -65,7 +65,7 @@ class SearchDialog(Gtk.Dialog):
 
 class Handler:
 
-    def button_clicked(self, button):
+    def button_clicked(self,button):
         name = Gtk.Buildable.get_name(button)
         bounds = buffer.get_selection_bounds()
 
@@ -241,6 +241,33 @@ class Handler:
     def close(self, *args):
         Gtk.main_quit()
 
+####################################### Shortcuts Implementation ##################################
+
+def bind_accelerator(accelerators, widget, accelerator, signal='clicked'):
+    key, mod = Gtk.accelerator_parse(accelerator)
+    widget.add_accelerator(signal, accelerators, key, mod, Gtk.AccelFlags.VISIBLE)
+
+def run_command_bold(widget):
+    #Handler.button_clicked(widget)
+    if "bold" not in active_tags:
+        active_tags.append("bold")
+    else:
+        active_tags.remove("bold")
+    
+
+#Adding accelerators to the window
+accelerators = Gtk.AccelGroup()
+window.add_accel_group(accelerators)
+
+#Widget
+target_bold = builder.get_object("bold")
+target_bold.connect('clicked', run_command_bold)
+
+#Bind
+bind_accelerator(accelerators, target_bold, '<Control>b')
+
+
+###################################################################################################
 
 builder.connect_signals(Handler())
 buffer.connect("insert-text", Handler.get_old_pos)
