@@ -181,14 +181,22 @@ class Page(StructureComponent):
         :param buffer: The buffer to be serialized
         :return: The name of the file written to
         """
-        if not self.is_active():
-            raise RuntimeError(f"The page requested to save is not active! ({self.id})")
         start, end = buffer.get_bounds()
         tags = buffer.register_serialize_tagset()
         data = buffer.serialize(buffer, tags, start, end)
         with open(self.file, 'wb') as file:
             file.write(data)
         return self.file
+
+    def load_buffer(self) -> Gtk.TextBuffer:
+        """ Loads this Page's TextBuffer from disk
+        :return: This Page's TextBuffer
+        """
+        buffer = Gtk.TextBuffer()
+        tags = buffer.register_deserialize_tagset()
+        with open(self.file, 'rb') as file:
+            buffer.deserialize(buffer, tags, buffer.get_bounds()[0], file.read())
+        return buffer
 
 
 class Tab(StructureComponent):
@@ -399,6 +407,17 @@ class StructureManager:
         name = page.save_buffer(text_buffer)
         self.history_manager.make_checkpoint()  # TODO Timestamp messages
         return name
+
+    def extract_text_from_page(self, _id: int) -> Gtk.TextBuffer:
+        """ Takes in a Page ID and then finds its associated TextBuffer
+        :param _id: The ID of the Page to look up
+        :return: The TextBuffer associated with the given Page
+        """
+        page = self.get_as_page(_id)
+        self.history_manager.switch_branch(page.git_hash)
+        buffer = page.load_buffer()
+        self.history_manager.switch_branch(self.get_as_page(self.active_page).git_hash)
+        return buffer
 
     def save(self, f_name: str) -> bool:
         """ Saves this StructureManager to disk
