@@ -36,7 +36,7 @@ class StructureComponent(ABC):
         self.name: str = None
 
     @abstractmethod
-    def add_page(self, _id: int, git_hash: str, title: str = None) -> 'Page':
+    def add_page(self, _id: int, branch_name: str, title: str = None) -> 'Page':
         pass
 
     @abstractmethod
@@ -61,7 +61,7 @@ class Page(StructureComponent):
     Unfolding the hierarchy of pages should be done depth-first
     """
 
-    def __init__(self, parent: int, _id: int, git_hash: str, title: str = 'Untitled Page'):
+    def __init__(self, parent: int, _id: int, branch_name: str, title: str = 'Untitled Page'):
         """ Constructor
         :param title: The name of this new Page
         """
@@ -77,7 +77,7 @@ class Page(StructureComponent):
         # boolean to tell if this page is active
         self.active: bool = False
         # The git hash of this page's branch
-        self.git_hash: str = git_hash
+        self.branch_name = branch_name
 
     def is_leaf(self) -> bool:
         """ Tells if this page has any sub-pages
@@ -116,14 +116,14 @@ class Page(StructureComponent):
         self.name = title
         return changed
 
-    def add_page(self, _id: int, git_hash: str, title: str = None) -> 'Page':
+    def add_page(self, _id: int, branch_name: str, title: str = None) -> 'Page':
         """ Creates a new sub-page, with this page as a parent
-        :param git_hash: The hash of the branch the page will live on
+        :param branch_name: The hash of the branch the page will live on
         :param _id: The ID of the new page
         :param title: The name of the new page
         :return: The new page created
         """
-        page = Page(self.id, _id, git_hash, title)
+        page = Page(self.id, _id, branch_name, title)
         if title is not None:
             page.set_title(title)
         self.sub_pages[page.id] = page
@@ -162,7 +162,7 @@ class Page(StructureComponent):
         return True
 
     def __deepcopy__(self, memodict=None) -> 'Page':
-        new_page = Page(self.parent, self.id, self.name)
+        new_page = Page(self.parent, self.id, self.branch_name, self.name)
         items = vars(self).items()
         for attr, val in items:
             # Avoid infinitely recursive copy
@@ -214,14 +214,14 @@ class Tab(StructureComponent):
         # dict of all top-level pages as {_id: Page}
         self.pages: Dict[int, Page] = OrderedDict()
 
-    def add_page(self, _id: int, git_hash: str, title: str = None) -> Page:
+    def add_page(self, _id: int, branch_name: str, title: str = None) -> Page:
         """ Adds a new page under this Tab
-        :param git_hash: The hash of the branch that the Page will live on
+        :param branch_name: The hash of the branch that the Page will live on
         :param _id: The ID of the new page
         :param title: The name of the new page
         :return: The new page created
         """
-        new_page = Page(self.id, _id, git_hash, title)
+        new_page = Page(self.id, _id, branch_name, title)
         self.pages[new_page.id] = new_page
         return new_page
 
@@ -390,7 +390,7 @@ class StructureManager:
             raise TypeError(f"Component with id {_id} is not a Page object!")
         val = _id == self.active_page
         self.active_page = _id
-        self.history_manager.switch_branch(self.get_as_page(_id).git_hash)
+        self.history_manager.switch_branch(self.get_as_page(_id).branch_name)
         return val
 
     def save_page(self, text_buffer: Gtk.TextBuffer, page_id: int = None) -> str:
@@ -402,8 +402,7 @@ class StructureManager:
         if page_id is None:
             page_id = self.active_page
         page = self.get_as_page(page_id)
-        if not page.is_active():
-            raise RuntimeError(f"Page with ID {page_id} is not active, and thus cannot be saved!")
+        self.set_active_page(page_id)
         name = page.save_buffer(text_buffer)
         self.history_manager.make_checkpoint()  # TODO Timestamp messages
         return name
@@ -414,9 +413,9 @@ class StructureManager:
         :return: The TextBuffer associated with the given Page
         """
         page = self.get_as_page(_id)
-        self.history_manager.switch_branch(page.git_hash)
+        self.history_manager.switch_branch(page.branch_name)
         buffer = page.load_buffer()
-        self.history_manager.switch_branch(self.get_as_page(self.active_page).git_hash)
+        self.history_manager.switch_branch(self.get_as_page(self.active_page).branch_name)
         return buffer
 
     def save(self, f_name: str) -> bool:
