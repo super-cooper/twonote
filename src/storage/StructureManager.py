@@ -56,8 +56,7 @@ class StructureComponent(ABC):
 
 
 class Page(StructureComponent):
-    """
-    Represents a page in this notebook
+    """ Represents a page in this notebook
     Recursive structure that maintains a list of all sub-pages beneath it
     Unfolding the hierarchy of pages should be done depth-first
     """
@@ -109,8 +108,7 @@ class Page(StructureComponent):
         return prev
 
     def set_title(self, title: str) -> bool:
-        """
-        Sets a new name for this Page
+        """ Sets a new name for this Page
         :param title: The new name
         :return: True if the name was changed, false otherwise
         """
@@ -194,8 +192,7 @@ class Page(StructureComponent):
 
 
 class Tab(StructureComponent):
-    """
-    Represents one tab of this notebook.
+    """ Represents one tab of this notebook.
     Maintains a list of top-level pages, each of which may manage infinite sub-pages
     """
 
@@ -263,8 +260,7 @@ class Tab(StructureComponent):
 
 
 class StructureManager:
-    """
-    Manages document structure for a notebook
+    """ Manages document structure for a notebook
     Notebooks are organized with top-level categories known as "tabs," and each tab contains a series of
     pages, each of which may contain infinite sub-pages
     TODO support remove parent pages without deleting children (giving them a new parent?)
