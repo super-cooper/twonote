@@ -248,20 +248,24 @@ def bind_accelerator(accelerators, widget, accelerator, signal='clicked'):
     widget.add_accelerator(signal, accelerators, key, mod, Gtk.AccelFlags.VISIBLE)
 
 def run_command_bold(widget):
+	if (button.get_active() == False):
+		print("button false")
+	else:
+		print("button true")
     #Handler.button_clicked(widget)
-    if "bold" not in active_tags:
-        active_tags.append("bold")
-    else:
-        active_tags.remove("bold")
+    #if "bold" not in active_tags:
+     #   active_tags.append("bold")
+    #else:
+     #   active_tags.remove("bold")
 
-def run_command_bold(widget):
+def run_command_underline(widget):
     #Handler.button_clicked(widget)
     if "bold" not in active_tags:
         active_tags.append("underline")
     else:
         active_tags.remove("underline")
 
-def run_command_bold(widget):
+def run_command_italics(widget):
     #Handler.button_clicked(widget)
     if "bold" not in active_tags:
         active_tags.append("italics")
@@ -276,15 +280,15 @@ window.add_accel_group(accelerators)
 #Widget
 target_bold = builder.get_object("bold")
 target_bold.connect('clicked', run_command_bold)
-target_bold = builder.get_object("underline")
-target_bold.connect('clicked', run_command_bold)
-target_bold = builder.get_object("italics")
-target_bold.connect('clicked', run_command_bold)
+target_underline = builder.get_object("underline")
+target_underline.connect('clicked', run_command_underline)
+target_italics = builder.get_object("italics")
+target_italics.connect('clicked', run_command_italics)
 
 #Bind
 bind_accelerator(accelerators, target_bold, '<Control>b')
-bind_accelerator(accelerators, target_bold, '<Control>u')
-bind_accelerator(accelerators, target_bold, '<Control>i')
+bind_accelerator(accelerators, target_underline, '<Control>u')
+bind_accelerator(accelerators, target_italics, '<Control>i')
 
 
 
