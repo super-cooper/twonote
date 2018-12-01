@@ -253,6 +253,20 @@ def run_command_bold(widget):
         active_tags.append("bold")
     else:
         active_tags.remove("bold")
+
+def run_command_bold(widget):
+    #Handler.button_clicked(widget)
+    if "bold" not in active_tags:
+        active_tags.append("underline")
+    else:
+        active_tags.remove("underline")
+
+def run_command_bold(widget):
+    #Handler.button_clicked(widget)
+    if "bold" not in active_tags:
+        active_tags.append("italics")
+    else:
+        active_tags.remove("italics")
     
 
 #Adding accelerators to the window
@@ -262,9 +276,16 @@ window.add_accel_group(accelerators)
 #Widget
 target_bold = builder.get_object("bold")
 target_bold.connect('clicked', run_command_bold)
+target_bold = builder.get_object("underline")
+target_bold.connect('clicked', run_command_bold)
+target_bold = builder.get_object("italics")
+target_bold.connect('clicked', run_command_bold)
 
 #Bind
 bind_accelerator(accelerators, target_bold, '<Control>b')
+bind_accelerator(accelerators, target_bold, '<Control>u')
+bind_accelerator(accelerators, target_bold, '<Control>i')
+
 
 
 ###################################################################################################
