@@ -110,6 +110,10 @@ class Handler:
         name = Gtk.Buildable.get_name(button)
         bounds = buffer.get_selection_bounds()
 
+        #if button.get_active() == False:
+        #    button.set_active(True)
+        #    button.set_active(False)
+
         #Will this fail with a non-toggle button
         if (button.get_active() == False):
             active_tags.remove(name)
@@ -398,20 +402,32 @@ def run_command_bold(widget):
             buffer.remove_tag_by_name(name, start, end)
 
 def run_command_underline(widget):
+    name = Gtk.Buildable.get_name(widget)
+    bounds = buffer.get_selection_bounds()
     #Handler.button_clicked(widget)
-    if "bold" not in active_tags:
+    if "underline" not in active_tags:
         active_tags.append("underline")
-        widget.set_active("True")
+        widget.set_active(True)
+        if len(bounds) != 0:
+            start, end = bounds
+            buffer.apply_tag_by_name(name, start, end)
+        #widget.set_active(True)
     else:
         active_tags.remove("underline")
+        #widget.set_active(False)
+        if len(bounds) != 0:
+            start, end = bounds
+            buffer.remove_tag_by_name(name, start, end)
+
 
 def run_command_italics(widget):
-    #Handler.button_clicked(widget)
-    if "bold" not in active_tags:
-        active_tags.append("italics")
-    else:
-        active_tags.remove("italics")
-    
+    handler = Handler()
+    widget.set_active(True)
+    Handler.button_clicked(handler,widget)
+    #if "bold" not in active_tags:
+    #    
+    #else:
+    #    
 
 #Adding accelerators to the window
 accelerators = Gtk.AccelGroup()
