@@ -347,7 +347,7 @@ class StructureManager:
         return page.id
 
     def remove_component(self, _id: int) -> None:
-        """ Removes a component from the structure
+        """ Removes a component from the structure, and all of its children
         :param _id: The ID of the component to be removed
         :except KeyError: If there is no component associated with _id
         """
