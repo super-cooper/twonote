@@ -423,6 +423,7 @@ def run_command_underline(widget):
 def run_command_italics(widget):
     handler = Handler()
     widget.set_active(True)
+    widget.set_active(False)
     Handler.button_clicked(handler,widget)
     #if "bold" not in active_tags:
     #    
