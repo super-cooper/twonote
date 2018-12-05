@@ -401,6 +401,7 @@ def run_command_underline(widget):
     #Handler.button_clicked(widget)
     if "bold" not in active_tags:
         active_tags.append("underline")
+        widget.set_active("True")
     else:
         active_tags.remove("underline")
 
