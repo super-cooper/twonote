@@ -7,7 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from enum import Enum
-from typing import Dict, List, Set
+from typing import Dict, List
 
 import gi
 
@@ -17,6 +17,8 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
 DEFAULT_PAGE_NAME = 'Untitled Page'
+STRUCTURE_MANAGER_BRANCH = 'sm'
+STRUCTURE_MANAGER_FILE = 'manager.sm'
 
 
 class StructureComponent(ABC):
@@ -301,6 +303,14 @@ class StructureManager:
         self.history_manager = HistoryManager(path)
         # Maintains a sorted list of all pages in this StructureManager
         self.pages: List[int] = []
+        # !! This code MUST be at the end of the constructor !!
+        with open('start', 'w') as f:
+            f.write('start')
+        self.history_manager.make_checkpoint()
+        self.history_manager.new_branch(STRUCTURE_MANAGER_BRANCH)
+        self.save()
+        self.history_manager.make_checkpoint()
+        self.history_manager.switch_to_master()
 
     def new_tab(self, name: str = None) -> int:
         """ Creates a new Tab in this notebook
@@ -424,7 +434,7 @@ class StructureManager:
         page = self.get_as_page(page_id)
         self.set_active_page(page_id)
         name = page.save_buffer(text_buffer)
-        self.history_manager.make_checkpoint()  # TODO Timestamp messages
+        self.history_manager.make_checkpoint()
         return name
 
     def extract_text_from_page(self, _id: int) -> Gtk.TextBuffer:
@@ -438,7 +448,7 @@ class StructureManager:
         self.history_manager.switch_branch(self.get_as_page(self.active_page).branch_name)
         return buffer
 
-    def save(self, f_name: str) -> bool:
+    def save(self, f_name: str = STRUCTURE_MANAGER_FILE) -> bool:
         """ Saves this StructureManager to disk
         :param f_name: The name of the file to save this StructureManager to
         :return: Result of call to StructureManager.persist(self, self.path)
@@ -455,8 +465,12 @@ class StructureManager:
         if not f_name.endswith('.tnb'):
             f_name += '.tnb'
         _copy = copy.deepcopy(structure_manager)
+        prev = structure_manager.history_manager.get_active_branch()
+        structure_manager.history_manager.repo.git.checkout(STRUCTURE_MANAGER_BRANCH)
         with open(os.path.join(structure_manager.path, f_name), 'wb') as file:
             pickle.dump(_copy, file)
+        structure_manager.history_manager.make_checkpoint()
+        structure_manager.history_manager.repo.git.checkout(prev)
         return True
 
     @staticmethod
