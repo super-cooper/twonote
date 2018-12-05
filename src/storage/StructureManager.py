@@ -1,11 +1,13 @@
 import copy
 import os
 import pickle
+import re
 import threading
 import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Dict, List
+from enum import Enum
+from typing import Dict, List, Set
 
 import gi
 
@@ -19,13 +21,17 @@ DEFAULT_PAGE_NAME = 'Untitled Page'
 
 class StructureComponent(ABC):
     """ Base class for notebook components containing methods that must be implemented
-    TODO add enum for determining type of StructureComponent
     """
 
     # global condition variable used to prevent concurrent component creation and _id overlap
     _component_create = threading.Condition(lock=threading.RLock())
 
-    def __init__(self, _id: int):
+    class ComponentType(Enum):
+        """ Small enum class for keeping track of the higher-order type of the StructureComponent """
+        PAGE = 0
+        TAB = 1
+
+    def __init__(self, _id: int, component_type: 'StructureComponent.ComponentType'):
         """ Constructor
         """
         # GMT Unix time at which the page was created
@@ -34,6 +40,7 @@ class StructureComponent(ABC):
         self.id: int = _id
         self.parent: int = None
         self.name: str = None
+        self.type: StructureComponent.ComponentType = component_type
 
     @abstractmethod
     def add_page(self, _id: int, branch_name: str, title: str = None) -> 'Page':
@@ -65,7 +72,7 @@ class Page(StructureComponent):
         """ Constructor
         :param title: The name of this new Page
         """
-        super().__init__(_id)
+        super().__init__(_id, StructureComponent.ComponentType.PAGE)
         # List of sub-pages owned by this page organized as {_id: Page}
         self.sub_pages: Dict[int, Page] = OrderedDict()
         # Pointer to the parent of this page
@@ -208,7 +215,7 @@ class Tab(StructureComponent):
         """ Constructor
         :param name: The name of this new Tab
         """
-        super().__init__(_id)
+        super().__init__(_id, StructureComponent.ComponentType.TAB)
         # name of this tab
         self.name: str = name
         # dict of all top-level pages as {_id: Page}
@@ -272,6 +279,7 @@ class StructureManager:
     Notebooks are organized with top-level categories known as "tabs," and each tab contains a series of
     pages, each of which may contain infinite sub-pages
     TODO support remove parent pages without deleting children (giving them a new parent?)
+    TODO support choosing order of page insertion (as in, can do more than just append)
     """
 
     def __init__(self, path: str):
@@ -291,6 +299,8 @@ class StructureManager:
         self.active_page: int = None
         # The HistoryManager for this StructureManager
         self.history_manager = HistoryManager(path)
+        # Maintains a sorted list of all pages in this StructureManager
+        self.pages: List[int] = []
 
     def new_tab(self, name: str = None) -> int:
         """ Creates a new Tab in this notebook
@@ -319,10 +329,18 @@ class StructureManager:
             raise ValueError(f"Cannot insert pages as child of component not in structure. Parent ID: {parent_id}")
         # Ensure that no two pages can have the same ID by acquiring a global lock
         StructureComponent._component_create.acquire()
-        page = self.get_component(parent_id).add_page(self._component_count, self.history_manager.new_branch(), title)
+        parent = self.get_component(parent_id)
+        branch_name = re.sub(r'\s+', '', title) + '-' + str(self._component_count)
+        self.history_manager.new_branch(branch_name)
+        page = parent.add_page(self._component_count, branch_name, title)
         self._component_count += 1
         StructureComponent._component_create.release()
         self.components[page.id] = page
+        # Add new page to ordered pages list
+        if parent.type == StructureComponent.ComponentType.TAB:
+            self.pages.append(page.id)
+        else:
+            self.pages.insert(self.pages.index(parent_id) + 1, page.id)
         # Guarantee that the first created Page is active
         if self.active_page is None:
             self.active_page = page.id
@@ -338,6 +356,8 @@ class StructureManager:
             self.get_component(component.parent).remove(_id)
         for child_id in self.components[_id].all_children():
             del self.components[child_id]
+        if component.type == StructureComponent.ComponentType.PAGE:
+            self.pages.remove(_id)
         del self.components[_id]
 
     def get_component(self, _id: int) -> StructureComponent:
@@ -459,7 +479,7 @@ class StructureManager:
         :raises TypeError: If the component associated with _id is not of type Page
         """
         comp: Page = self.get_component(_id)
-        if type(comp) is not Page:
+        if comp.type != StructureComponent.ComponentType.PAGE:
             TypeError(f"Component with id {_id} is not Page object! (type {type(comp)})")
         return comp
 
@@ -469,6 +489,6 @@ class StructureManager:
         :return: The component linked to _id as a Tab object
         """
         comp: Tab = self.get_component(_id)
-        if type(comp) is not Tab:
+        if comp.type != StructureComponent.ComponentType.TAB:
             TypeError(f"Component with id {_id} is not Tab object! (type {type(comp)})")
         return comp
