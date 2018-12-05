@@ -304,7 +304,7 @@ class StructureManager:
         # Maintains a sorted list of all pages in this StructureManager
         self.pages: List[int] = []
         # !! This code MUST be at the end of the constructor !!
-        with open('start', 'w') as f:
+        with open(os.path.join(self.path, 'start'), 'w') as f:
             f.write('start')
         self.history_manager.make_checkpoint()
         self.history_manager.new_branch(STRUCTURE_MANAGER_BRANCH)
