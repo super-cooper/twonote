@@ -301,7 +301,7 @@ class StructureManager:
         self.active_page: int = None
         # The HistoryManager for this StructureManager
         self.history_manager = HistoryManager(path)
-        # Maintains a sorted list of all pages in this StructureManager
+        # Maintains a sorted list of all top-level pages in this StructureManager
         self.pages: List[int] = []
         # !! This code MUST be at the end of the constructor !!
         with open(os.path.join(self.path, 'start'), 'w') as f:
@@ -349,8 +349,6 @@ class StructureManager:
         # Add new page to ordered pages list
         if parent.type == StructureComponent.ComponentType.TAB:
             self.pages.append(page.id)
-        else:
-            self.pages.insert(self.pages.index(parent_id) + 1, page.id)
         # Guarantee that the first created Page is active
         if self.active_page is None:
             self.active_page = page.id
@@ -366,7 +364,7 @@ class StructureManager:
             self.get_component(component.parent).remove(_id)
         for child_id in self.components[_id].all_children():
             del self.components[child_id]
-        if component.type == StructureComponent.ComponentType.PAGE:
+        if _id in self.pages:
             self.pages.remove(_id)
         del self.components[_id]
 
