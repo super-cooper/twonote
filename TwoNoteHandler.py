@@ -71,6 +71,12 @@ treeview.set_activate_on_single_click(single_click)
 renderer = Gtk.CellRendererText()
 # text attribute gets value from column 2
 column_new_text = Gtk.TreeViewColumn("Notes", renderer, text=0)
+
+#setting header clickable does not work
+treeview.set_headers_clickable(True)
+column_new_text.set_clickable(True)
+print(treeview.get_headers_clickable())
+
 resizable = True
 column_new_text.set_resizable(resizable)
 treeview.append_column(column_new_text)
@@ -299,8 +305,8 @@ class Handler:
     def test(text, a ,b ,c, d):
         print("ahh!")
 
-    def test2(self, button, etc):
-        global window
+    '''called when a row is selected'''
+    def test2(self, a, b):
         print("hi")
 
     def set_wrapping(self, button):
@@ -365,6 +371,28 @@ class Handler:
         print(widget.get_rgba())
         Gtk.Widget.hide(widget)
 
+    def new_row(self, button):
+        global treeview
+        global store
+        tree_selection = treeview.get_selection()
+        iter = tree_selection.get_selected()[1]
+        new_row = store.insert(iter, 100)
+        store.set(new_row, 0, "New Note")
+        #path = treeview.get_path_at_pos(0, store.iter_depth(new_row))[0]
+        if (iter != None):
+            path_parent =  store.get_path(iter)
+            path_row = store.get_path(new_row)
+            treeview.expand_row(path_parent, False)
+            tree_selection.select_iter(new_row)
+
+    def delete_row(selfself, button):
+        global treeview
+        global store
+        tree_selection = treeview.get_selection()
+        iter = tree_selection.get_selected()[1]
+
+        store.remove(iter)
+
     #why the pointer?
     #or else python interpreter will continue running
     def close(self, *args):
@@ -376,6 +404,7 @@ buffer.connect("insert-text", Handler.get_old_pos)
 buffer.connect("end-user-action", Handler.edit_input)
 #TODO: not working
 textview.connect("move-cursor", Handler.test)
+treeview.connect("row_activated", Handler.test2)
 #color_chooser.connect("response", Handler.close_dialog)
 #buffer.connect("group-changed", Handler.set_spacing)
 
