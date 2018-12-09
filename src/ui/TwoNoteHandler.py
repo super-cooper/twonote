@@ -3,7 +3,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
 
 builder = Gtk.Builder()
-builder.add_from_file("/home/thomas/Notepad.glade")
+builder.add_from_file("Notepad.glade")
 textview = builder.get_object("textview")
 buffer = textview.get_buffer()
 window = builder.get_object("MainWindow")
