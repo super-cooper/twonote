@@ -458,6 +458,7 @@
                         <property name="receives_default">True</property>
                         <property name="use_stock">True</property>
                         <property name="always_show_image">True</property>
+                        <signal name="clicked" handler="new_row" swapped="no"/>
                       </object>
                       <packing>
                         <property name="expand">True</property>
@@ -473,6 +474,7 @@
                         <property name="receives_default">True</property>
                         <property name="use_stock">True</property>
                         <property name="always_show_image">True</property>
+                        <signal name="clicked" handler="delete_row" swapped="no"/>
                       </object>
                       <packing>
                         <property name="expand">True</property>
