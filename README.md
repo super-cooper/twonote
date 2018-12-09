@@ -9,7 +9,11 @@ The authors are Marouane Abra, Jacob Arons, Adam Cooper, Thomas Nemeh, and
 Weizheng Zhang
 
 ## Dependencies
-We will list dependencies here as we add them
+`python3`
+
+`python-gi`
+
+`python3-git`
 
 ## Building
 When we have a working build system, we will describe it here
