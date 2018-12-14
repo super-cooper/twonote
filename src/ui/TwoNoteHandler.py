@@ -1,89 +1,165 @@
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
+import sys
+sys.path.insert(0,"../storage")
+from StructureManager import StructureManager
+import os
 
+'''Get essential widgets from Glade File'''
 builder = Gtk.Builder()
 builder.add_from_file("Notepad.glade")
-textview = builder.get_object("textview")
-buffer = textview.get_buffer()
 window = builder.get_object("MainWindow")
+treeview = builder.get_object("treeview")
+textview_box=builder.get_object("textview_box")
+scrolled_window = builder.get_object("scrolled_window")
+color_chooser = builder.get_object("color_chooser")
+highlight_chooser = builder.get_object("highlight_chooser")
 
-tag_table = buffer.get_tag_table()
+'''create data store for treeview'''
+store = Gtk.TreeStore(str, int)
 
-font_chooser = builder.get_object("font_chooser")
-font_family = font_chooser.get_font_family().get_name()
-font_size = font_chooser.get_font_size()
-tag_font = buffer.create_tag(font_family, family=font_family)
-tag_size = buffer.create_tag(str(font_size), size=12288)
+'''list of tags to apply to inputted text'''
+active_tags = []
 
-tag_bold = buffer.create_tag("bold", weight=Pango.Weight.BOLD)
-tag_underline = buffer.create_tag("underline", underline=Pango.Underline.SINGLE)
-tag_italic = buffer.create_tag("italics", style=Pango.Style.ITALIC)
-
-tag_left = buffer.create_tag("left", justification=Gtk.Justification.LEFT)
-tag_center = buffer.create_tag("center", justification=Gtk.Justification.CENTER)
-tag_right = buffer.create_tag("right", justification=Gtk.Justification.RIGHT)
-tag_fill = buffer.create_tag("fill", justification=Gtk.Justification.FILL)
+'''justifications for indentation'''
 justifications = {"left" : Gtk.Justification.LEFT, "center" : Gtk.Justification.CENTER, "right" : Gtk.Justification.RIGHT, "fill": Gtk.Justification.FILL}
 main_justification_name = "left"
 justification_blocked = False
 
-# TODO: spacing, word wrapping
-tag_double = buffer.create_tag("double", pixels_above_lines=10)
-one_half = buffer.create_tag("one_half", pixels_above_lines=7.5)
+'''setup font and spacing'''
+font_chooser = builder.get_object("font_chooser")
 spacing = "single" #keep track of current space
 spacing_blocked = True
-
-tag_found = buffer.create_tag("found", background="yellow")
-
-tag_strike = buffer.create_tag("strike", strikethrough=True)
-
-textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
 wrapping_blocked = False
 
-color_chooser = builder.get_object("color_chooser")
-tag_color = buffer.create_tag("Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=1.000000)", foreground_rgba=Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=1.000000))
+'''create tag table for buffer'''
+def setup_buffer(buffer):
+    global tag_table, tag_font, tag_size, tag_bold, tag_underline, tag_italic, tag_left, tag_center, tag_right, tag_fill, tag_double, one_half, tag_found, tag_strike, tag_color, tag_highlight
 
-highlight_chooser = builder.get_object("highlight_chooser")
-tag_highlight = buffer.create_tag("highlight: Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=0.000000)", background_rgba=Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=0.000000))
+    global tag_table
+    tag_table = buffer.get_tag_table()
 
-active_tags = []
+    font_family = font_chooser.get_font_family().get_name()
+    font_size = font_chooser.get_font_size()
+    tag_font = buffer.create_tag(font_family, family=font_family)
+    tag_size = buffer.create_tag(str(font_size), size=12288)
 
-buffer.create_mark("old_pos", buffer.get_iter_at_mark(buffer.get_insert()), True)
+    tag_bold = buffer.create_tag("bold", weight=Pango.Weight.BOLD)
+    tag_underline = buffer.create_tag("underline", underline=Pango.Underline.SINGLE)
+    tag_italic = buffer.create_tag("italics", style=Pango.Style.ITALIC)
+
+    tag_left = buffer.create_tag("left", justification=Gtk.Justification.LEFT)
+    tag_center = buffer.create_tag("center", justification=Gtk.Justification.CENTER)
+    tag_right = buffer.create_tag("right", justification=Gtk.Justification.RIGHT)
+    tag_fill = buffer.create_tag("fill", justification=Gtk.Justification.FILL)
+
+    # TODO: spacing, word wrapping
+    tag_double = buffer.create_tag("double", pixels_above_lines=10)
+    one_half = buffer.create_tag("one_half", pixels_above_lines=7.5)
+
+    tag_found = buffer.create_tag("found", background="yellow")
+
+    tag_strike = buffer.create_tag("strike", strikethrough=True)
+
+    tag_color = buffer.create_tag("Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=1.000000)", foreground_rgba=Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=1.000000))
+
+    tag_highlight = buffer.create_tag("highlight: Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=0.000000)", background_rgba=Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=0.000000))
+
+    '''create mark to keep track of position of cursor before user input'''
+    buffer.create_mark("old_pos", buffer.get_iter_at_mark(buffer.get_insert()), True)
+
+'''setup treeview'''
+def show_treeview():
+    #create the model
+    #returns TreeIter poiting to this row
+    #new_text = store.append(None, ["newfile.txt"])
+
+    #the treeview shows the model
+    treeview.set_model(store)
+    single_click = True
+    treeview.set_activate_on_single_click(single_click)
+
+    # the cellrenderer for the first column
+    renderer = Gtk.CellRendererText()
+    #renderer2 = Gtk.CellRendererText()
+    column_new_text = Gtk.TreeViewColumn("Notes", renderer, text=0)
+    column_new_text.set_sort_column_id(0)
+    column_id = Gtk.TreeViewColumn("ID", renderer, text=1)
+    column_id.set_sort_column_id(1)
+
+    #setting header clickable does not work
+    treeview.set_headers_clickable(True)
+    column_new_text.set_clickable(True)
+    #print(treeview.get_headers_clickable())
+
+    resizable = True
+    column_new_text.set_resizable(resizable)
+    treeview.append_column(column_new_text)
+
+    resizable = True
+    column_id.set_resizable(resizable)
+    column_id.set_visible(True)
+    treeview.append_column(column_id)
 
 
-#implement emoji chooser
-#strike through property?
-
-#TODO: treeview
-#create the model
-store = Gtk.TreeStore(str)
-#returns TreeIter poiting to this row
-new_text = store.append(None, ["newfile.txt"])
-
-#the treeview shows the model
-treeview = builder.get_object("treeview")
-treeview.set_model(store)
-single_click = True
-treeview.set_activate_on_single_click(single_click)
-
-# the cellrenderer for the first column
-renderer = Gtk.CellRendererText()
-# text attribute gets value from column 2
-column_new_text = Gtk.TreeViewColumn("Notes", renderer, text=0)
-
-#setting header clickable does not work
-treeview.set_headers_clickable(True)
-column_new_text.set_clickable(True)
-print(treeview.get_headers_clickable())
-
-resizable = True
-column_new_text.set_resizable(resizable)
-treeview.append_column(column_new_text)
 ''' use destroy to remove widget from boc
 textview_box.remove(textview)
 textview.destroy()'''
 #print(treeview.get_activate_on_single_click())
+'''move textview methods here'''
+
+'''setup initial page in treeview when no structure manager is found on startup'''
+def initial_setup(parent_tab_name, initial_page_id):
+    global treeview
+    global store
+    global manager
+
+    tree_selection = treeview.get_selection()
+    iter = tree_selection.get_selected()[1]
+    new_row = store.insert(iter, 100)
+    #store.set(new_row, 0, name, 1, '0')
+    store.set(new_row, 0, parent_tab_name)
+    store.set(new_row, 1, 0)
+
+    tree_selection.select_iter(new_row)
+
+    tree_selection = treeview.get_selection()
+    iter = tree_selection.get_selected()[1]
+    new_row = store.insert(iter, 100)
+    #store.set(new_row, 0, 'Untitled Page', 1, '1')
+    store.set(new_row, 0, 'Untitled Page')
+    store.set(new_row, 1, initial_page_id)
+    #store.set(new_row, 0, 'Untitled Page')
+    #store.set(new_row, (0, name), (1, '0'))
+    #path = treeview.get_path_at_pos(0, store.iter_depth(new_row))[0]
+    #take parent tab into account
+
+    path_parent =  store.get_path(iter)
+    path_row = store.get_path(new_row)
+    treeview.expand_row(path_parent, False)
+    tree_selection.select_iter(new_row)
+
+'''NOTE: first try statement does not work. Delete structure manager after running the applicastion'''
+try:
+    manager = StructureManager.load_from_disk(str(os.getcwd()) + "/TestNotebook/manager.sm.tnb")
+    #get the active page
+
+except FileNotFoundError:
+    global active_page_ID
+    manager = StructureManager(str(os.getcwd()) + "/TestNotebook")
+    parent_tab_ID = manager.new_tab("Notebook")
+    parent_tab = "Notebook"
+    show_treeview()
+    active_page_ID = manager.new_page(parent_tab_ID)
+    manager.set_active_page(active_page_ID)
+    initial_setup(parent_tab, active_page_ID)
+
+    textview = Gtk.TextView()
+    buffer = textview.get_buffer()
+    textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+    setup_buffer(buffer)
+    scrolled_window.add(textview)
 
 class SearchDialog(Gtk.Dialog):
 
@@ -176,7 +252,7 @@ class Handler:
         buffer.apply_tag(tag_font, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
         buffer.apply_tag(tag_size, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
         buffer.apply_tag(tag_color, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
-        buffer.apply_tag(tag_highlight, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
+        #buffer.apply_tag(tag_highlight, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
 
         for x in active_tags:
             buffer.apply_tag_by_name(x, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
@@ -305,10 +381,6 @@ class Handler:
     def test(text, a ,b ,c, d):
         print("ahh!")
 
-    '''called when a row is selected'''
-    def test2(self, a, b):
-        print("hi")
-
     def set_wrapping(self, button):
         global textview
         global wrapping_blocked
@@ -347,6 +419,7 @@ class Handler:
         global buffer
         global tag_table
         global tag_highlight
+
         RGBA = widget.get_rgba()
 
         if (tag_table.lookup("highlight: " + str(RGBA)) == None):
@@ -361,6 +434,7 @@ class Handler:
             buffer.apply_tag(tag_highlight, start, end)
 
 
+
     def open_color_dialog(self, button):
         Gtk.Widget.show_all(builder.get_object("color_chooser"))
 
@@ -371,27 +445,83 @@ class Handler:
         print(widget.get_rgba())
         Gtk.Widget.hide(widget)
 
-    def new_row(self, button):
+    def new_page(self, button):
         global treeview
         global store
+        global manager
+        global textview
+        global buffer
+        global active_page_ID
+        '''new page and then set active page'''
+
+        '''set new page as active page'''
+        old_active_ID = active_page_ID
+        active_page_ID = manager.new_page(old_active_ID)
+        manager.set_active_page(active_page_ID)
+
         tree_selection = treeview.get_selection()
         iter = tree_selection.get_selected()[1]
         new_row = store.insert(iter, 100)
-        store.set(new_row, 0, "New Note")
+        store.set(new_row, 0, "Untitled Page")
+        store.set(new_row, 1, active_page_ID)
+
         #path = treeview.get_path_at_pos(0, store.iter_depth(new_row))[0]
+        #take parent tab into account
+
+        '''expand parent row'''
         if (iter != None):
             path_parent =  store.get_path(iter)
             path_row = store.get_path(new_row)
             treeview.expand_row(path_parent, False)
             tree_selection.select_iter(new_row)
 
-    def delete_row(selfself, button):
+        manager.save_page(buffer, active_page_ID)
+        buffer = Gtk.TextBuffer()
+        setup_buffer(buffer)
+        textview.set_buffer(buffer)
+        '''will this work?'''
+
+    #def switch_active_page(self, ):
+
+    def delete_row(self, button):
         global treeview
         global store
         tree_selection = treeview.get_selection()
         iter = tree_selection.get_selected()[1]
 
         store.remove(iter)
+
+    def change_page(tree_model, path, column):
+        global manager
+        global store
+        global active_page_ID
+        global buffer
+        global textview
+
+        '''If parent tab is open, i.e. no page is open, and you want to switch to a page'''
+        if (store.get(store.get_iter(path), 0)[0] == "Notebook"):
+            manager.save_page(buffer, active_page_ID)
+            textview_box.remove(textview)
+            textview.destroy()
+            active_page_ID = None
+        else:
+            '''If a page is open and yu switch to the parent tab with no page'''
+            if (active_page_ID == None):
+                active_page_ID = store.get(store.get_iter(path), 1)[0]
+                print(active_page_ID)
+                textview = Gtk.TextView()
+                textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+                buffer = manager.extract_text_from_page(active_page_ID)
+                setup_buffer(buffer)
+                textview.set_buffer(buffer)
+            else:
+                '''switch from one page to another'''
+                manager.save_page(buffer, active_page_ID)
+                active_page_ID = store.get(store.get_iter(path), 1)[0]
+                print(active_page_ID)
+                buffer = manager.extract_text_from_page(active_page_ID)
+                textview.set_buffer(buffer)
+                manager.set_active_page(active_page_ID)
 
     #why the pointer?
     #or else python interpreter will continue running
@@ -404,7 +534,7 @@ buffer.connect("insert-text", Handler.get_old_pos)
 buffer.connect("end-user-action", Handler.edit_input)
 #TODO: not working
 textview.connect("move-cursor", Handler.test)
-treeview.connect("row_activated", Handler.test2)
+treeview.connect("row-activated", Handler.change_page)
 #color_chooser.connect("response", Handler.close_dialog)
 #buffer.connect("group-changed", Handler.set_spacing)
 

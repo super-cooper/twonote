@@ -11,7 +11,8 @@ from typing import Dict, List
 
 import gi
 
-from storage.HistoryManager import HistoryManager
+#Changed path here
+from HistoryManager import HistoryManager
 
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
