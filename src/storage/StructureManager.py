@@ -463,6 +463,13 @@ class StructureManager:
         """
         return StructureManager.persist(self, f_name)
 
+    def close(self, f_name: str = STRUCTURE_MANAGER_FILE) -> bool:
+        """ Saves state of this structure manager and returns the notebook dir to the default state
+        """
+        self.save(f_name)
+        self.history_manager.switch_branch(STRUCTURE_MANAGER_BRANCH)
+        return True
+
     @staticmethod
     def persist(structure_manager: 'StructureManager', f_name: str) -> bool:
         """ Persists this StructureManager to disk using a Pickler
@@ -489,9 +496,10 @@ class StructureManager:
         :return: A StructureManager restored from the pickle file
         """
         with open(path, 'rb') as file:
-            sm = pickle.load(file)
+            sm: StructureManager = pickle.load(file)
         if type(sm) is not StructureManager:
             raise TypeError(f"Loaded file {path} is not a StructureManager!")
+        sm.history_manager.switch_branch(sm.get_as_page(sm.active_page).branch_name)
         return sm
 
     def get_as_page(self, _id: int) -> Page:
