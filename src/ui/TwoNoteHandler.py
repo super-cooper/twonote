@@ -1,9 +1,7 @@
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
-import sys
-sys.path.insert(0,"../storage")
-from StructureManager import StructureManager
+from storage.StructureManager import StructureManager
 import os
 
 '''Get essential widgets from Glade File'''

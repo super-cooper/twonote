@@ -11,8 +11,7 @@ from typing import Dict, List
 
 import gi
 
-#Changed path here
-from HistoryManager import HistoryManager
+from storage.HistoryManager import HistoryManager
 
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
@@ -27,7 +26,7 @@ class StructureComponent(ABC):
     """
 
     # global condition variable used to prevent concurrent component creation and _id overlap
-    _component_create = threading.Condition(lock=threading.RLock())
+    component_create = threading.Condition(lock=threading.RLock())
 
     class ComponentType(Enum):
         """ Small enum class for keeping track of the higher-order type of the StructureComponent """
@@ -320,10 +319,10 @@ class StructureManager:
         """
         self._total_tabs += 1
         # Ensure that no two tabs can have the same ID by acquiring a global lock
-        StructureComponent._component_create.acquire()
+        StructureComponent.component_create.acquire()
         tab = Tab(name if name is not None else "Tab " + str(self._total_tabs), self._component_count)
         self._component_count += 1
-        StructureComponent._component_create.release()
+        StructureComponent.component_create.release()
         self.components[tab.id] = tab
         return tab.id
 
@@ -339,20 +338,20 @@ class StructureManager:
         if parent_id not in self:
             raise ValueError(f"Cannot insert pages as child of component not in structure. Parent ID: {parent_id}")
         # Ensure that no two pages can have the same ID by acquiring a global lock
-        StructureComponent._component_create.acquire()
+        StructureComponent.component_create.acquire()
         parent = self.get_component(parent_id)
         branch_name = re.sub(r'\s+', '', title) + '-' + str(self._component_count)
         self.history_manager.new_branch(branch_name)
         page = parent.add_page(self._component_count, branch_name, title)
         self._component_count += 1
-        StructureComponent._component_create.release()
+        StructureComponent.component_create.release()
         self.components[page.id] = page
         # Add new page to ordered pages list
         if parent.type == StructureComponent.ComponentType.TAB:
             self.pages.append(page.id)
         # Guarantee that the first created Page is active
         if self.active_page is None:
-            self.active_page = page.id
+            self.set_active_page(page.id)
         return page.id
 
     def remove_component(self, _id: int) -> None:
@@ -360,14 +359,25 @@ class StructureManager:
         :param _id: The ID of the component to be removed
         :except KeyError: If there is no component associated with _id
         """
-        component = self.get_component(_id)
+        component: StructureComponent = self.get_component(_id)
         if component.parent is not None:
             self.get_component(component.parent).remove(_id)
         for child_id in self.components[_id].all_children():
             del self.components[child_id]
-        if _id in self.pages:
-            self.pages.remove(_id)
         del self.components[_id]
+        # This is the ID of the next active page if the component being removed is the active_page
+        new_active = 0
+        if _id in self.pages:
+            index = self.pages.index(_id) - 1
+            self.pages.remove(_id)
+            new_active = self.pages[max(0, index)]
+        elif component.type is StructureComponent.ComponentType.PAGE \
+                and component.parent.type is StructureComponent.ComponentType.PAGE:
+            new_active = component.parent.id
+        if _id == self.active_page:
+            # If the removed page is the active page, switch to the one above it
+            # If this was the first top-level page, the new active page is the new first top-level page
+            self.set_active_page(new_active)
 
     def get_component(self, _id: int) -> StructureComponent:
         """ Searches for a component by _id number
@@ -442,9 +452,8 @@ class StructureManager:
         :return: The TextBuffer associated with the given Page
         """
         page = self.get_as_page(_id)
-        self.history_manager.switch_branch(page.branch_name)
+        self.set_active_page(_id)
         buffer = page.load_buffer()
-        self.history_manager.switch_branch(self.get_as_page(self.active_page).branch_name)
         return buffer
 
     def save(self, f_name: str = STRUCTURE_MANAGER_FILE) -> bool:
