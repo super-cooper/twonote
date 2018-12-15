@@ -1,6 +1,8 @@
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
+import sys
+sys.path.append("..")
 from storage.StructureManager import StructureManager
 import os
 
@@ -150,7 +152,7 @@ except FileNotFoundError:
     parent_tab = "Notebook"
     show_treeview()
     active_page_ID = manager.new_page(parent_tab_ID)
-    manager.set_active_page(active_page_ID)
+    '''manager.set_active_page(active_page_ID)'''
     initial_setup(parent_tab, active_page_ID)
 
     textview = Gtk.TextView()
@@ -250,7 +252,7 @@ class Handler:
         buffer.apply_tag(tag_font, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
         buffer.apply_tag(tag_size, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
         buffer.apply_tag(tag_color, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
-        #buffer.apply_tag(tag_highlight, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
+        buffer.apply_tag(tag_highlight, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
 
         for x in active_tags:
             buffer.apply_tag_by_name(x, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
@@ -455,7 +457,7 @@ class Handler:
         '''set new page as active page'''
         old_active_ID = active_page_ID
         active_page_ID = manager.new_page(old_active_ID)
-        manager.set_active_page(active_page_ID)
+        '''manager.set_active_page(active_page_ID)'''
 
         tree_selection = treeview.get_selection()
         iter = tree_selection.get_selected()[1]
@@ -473,7 +475,8 @@ class Handler:
             treeview.expand_row(path_parent, False)
             tree_selection.select_iter(new_row)
 
-        manager.save_page(buffer, active_page_ID)
+        '''I believe something is wrong here'''
+        manager.save_page(buffer)
         buffer = Gtk.TextBuffer()
         setup_buffer(buffer)
         textview.set_buffer(buffer)
@@ -495,35 +498,43 @@ class Handler:
         global active_page_ID
         global buffer
         global textview
+        global scrolled_window
 
-        '''If parent tab is open, i.e. no page is open, and you want to switch to a page'''
+        '''If no page is open and you want to switch to a page'''
         if (store.get(store.get_iter(path), 0)[0] == "Notebook"):
-            manager.save_page(buffer, active_page_ID)
+            print("If statement 1")
+            manager.save_page(buffer)
             textview_box.remove(textview)
             textview.destroy()
             active_page_ID = None
+            buffer = None
         else:
-            '''If a page is open and yu switch to the parent tab with no page'''
+            '''If parent tab is open, i.e. no page is open, and you want to switch to a page'''
             if (active_page_ID == None):
+                print("If statement 2")
                 active_page_ID = store.get(store.get_iter(path), 1)[0]
                 print(active_page_ID)
                 textview = Gtk.TextView()
                 textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
                 buffer = manager.extract_text_from_page(active_page_ID)
-                setup_buffer(buffer)
+                '''setup_buffer(buffer)'''
                 textview.set_buffer(buffer)
+                scrolled_window.add(textview)
             else:
                 '''switch from one page to another'''
-                manager.save_page(buffer, active_page_ID)
+                print("If statement 3")
+                manager.save_page(buffer)
                 active_page_ID = store.get(store.get_iter(path), 1)[0]
                 print(active_page_ID)
                 buffer = manager.extract_text_from_page(active_page_ID)
                 textview.set_buffer(buffer)
-                manager.set_active_page(active_page_ID)
+                '''manager.set_active_page(active_page_ID)'''
 
     #why the pointer?
     #or else python interpreter will continue running
     def close(self, *args):
+        global manager
+        manager.close()
         Gtk.main_quit()
 
 
