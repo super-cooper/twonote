@@ -3,8 +3,10 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
 import sys
 sys.path.append("..")
-from storage.StructureManager import StructureManager
+from storage.StructureManager import StructureManager, STRUCTURE_MANAGER_FILE
 import os
+
+TEST_NOTEBOOK_PATH = '/tmp/TestNotebook/'
 
 '''Get essential widgets from Glade File'''
 builder = Gtk.Builder()
@@ -142,24 +144,25 @@ def initial_setup(parent_tab_name, initial_page_id):
 
 '''NOTE: first try statement does not work. Delete structure manager after running the applicastion'''
 try:
-    manager = StructureManager.load_from_disk(str(os.getcwd()) + "/TestNotebook/manager.sm.tnb")
+    manager = StructureManager.load_from_disk(os.path.join(TEST_NOTEBOOK_PATH, STRUCTURE_MANAGER_FILE))
+    buffer = manager.extract_text_from_page(manager.active_page)
+    textview = Gtk.TextView()
+    textview.set_buffer(buffer)
     #get the active page
 
 except FileNotFoundError:
-    global active_page_ID
-    manager = StructureManager(str(os.getcwd()) + "/TestNotebook")
+    manager = StructureManager(TEST_NOTEBOOK_PATH)
     parent_tab_ID = manager.new_tab("Notebook")
     parent_tab = "Notebook"
     show_treeview()
-    active_page_ID = manager.new_page(parent_tab_ID)
-    '''manager.set_active_page(active_page_ID)'''
-    initial_setup(parent_tab, active_page_ID)
+    initial_setup(parent_tab, manager.new_page(parent_tab_ID))
 
     textview = Gtk.TextView()
     buffer = textview.get_buffer()
-    textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-    setup_buffer(buffer)
-    scrolled_window.add(textview)
+
+textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+setup_buffer(buffer)
+scrolled_window.add(textview)
 
 class SearchDialog(Gtk.Dialog):
 
@@ -451,19 +454,15 @@ class Handler:
         global manager
         global textview
         global buffer
-        global active_page_ID
         '''new page and then set active page'''
 
-        '''set new page as active page'''
-        old_active_ID = active_page_ID
-        active_page_ID = manager.new_page(old_active_ID)
-        '''manager.set_active_page(active_page_ID)'''
+        manager.new_page(manager.active_page)
 
         tree_selection = treeview.get_selection()
         iter = tree_selection.get_selected()[1]
         new_row = store.insert(iter, 100)
         store.set(new_row, 0, "Untitled Page")
-        store.set(new_row, 1, active_page_ID)
+        store.set(new_row, 1, manager.active_page)
 
         #path = treeview.get_path_at_pos(0, store.iter_depth(new_row))[0]
         #take parent tab into account
@@ -495,7 +494,6 @@ class Handler:
     def change_page(tree_model, path, column):
         global manager
         global store
-        global active_page_ID
         global buffer
         global textview
         global scrolled_window
@@ -506,29 +504,16 @@ class Handler:
             manager.save_page(buffer)
             textview_box.remove(textview)
             textview.destroy()
-            active_page_ID = None
             buffer = None
         else:
-            '''If parent tab is open, i.e. no page is open, and you want to switch to a page'''
-            if (active_page_ID == None):
-                print("If statement 2")
-                active_page_ID = store.get(store.get_iter(path), 1)[0]
-                print(active_page_ID)
-                textview = Gtk.TextView()
-                textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-                buffer = manager.extract_text_from_page(active_page_ID)
-                '''setup_buffer(buffer)'''
-                textview.set_buffer(buffer)
-                scrolled_window.add(textview)
-            else:
-                '''switch from one page to another'''
-                print("If statement 3")
-                manager.save_page(buffer)
-                active_page_ID = store.get(store.get_iter(path), 1)[0]
-                print(active_page_ID)
-                buffer = manager.extract_text_from_page(active_page_ID)
-                textview.set_buffer(buffer)
-                '''manager.set_active_page(active_page_ID)'''
+            '''switch from one page to another'''
+            print("If statement 3")
+            manager.save_page(buffer)
+            active_page_ID = store.get(store.get_iter(path), 1)[0]
+            manager.set_active_page(active_page_ID)
+            print(active_page_ID)
+            buffer = manager.extract_text_from_page(manager.active_page)
+            textview.set_buffer(buffer)
 
     #why the pointer?
     #or else python interpreter will continue running

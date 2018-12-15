@@ -18,7 +18,7 @@ from gi.repository import Gtk
 
 DEFAULT_PAGE_NAME = 'Untitled Page'
 STRUCTURE_MANAGER_BRANCH = 'sm'
-STRUCTURE_MANAGER_FILE = 'manager.sm'
+STRUCTURE_MANAGER_FILE = 'manager.tnb'
 
 
 class StructureComponent(ABC):
@@ -45,7 +45,7 @@ class StructureComponent(ABC):
         self.type: StructureComponent.ComponentType = component_type
 
     @abstractmethod
-    def add_page(self, _id: int, branch_name: str, title: str = None) -> 'Page':
+    def add_page(self, _id: int, path: str, branch_name: str, title: str = None) -> 'Page':
         pass
 
     @abstractmethod
@@ -70,7 +70,7 @@ class Page(StructureComponent):
     Unfolding the hierarchy of pages should be done depth-first
     """
 
-    def __init__(self, parent: int, _id: int, branch_name: str, title: str = 'Untitled Page'):
+    def __init__(self, parent: int, _id: int, path: str, branch_name: str, title: str = 'Untitled Page'):
         """ Constructor
         :param title: The name of this new Page
         """
@@ -82,7 +82,7 @@ class Page(StructureComponent):
         # Title of this page
         self.name: str = title
         # name of text buffer on disk
-        self.file: str = self.name + f'-{self.id}.tbuf'
+        self.path: str = os.path.join(path, self.name + f'-{self.id}.tbuf')
         # boolean to tell if this page is active
         self.active: bool = False
         # The git hash of this page's branch
@@ -125,14 +125,15 @@ class Page(StructureComponent):
         self.name = title
         return changed
 
-    def add_page(self, _id: int, branch_name: str, title: str = None) -> 'Page':
+    def add_page(self, _id: int, path: str, branch_name: str, title: str = None) -> 'Page':
         """ Creates a new sub-page, with this page as a parent
+        :param path: The path where the page will be saved
         :param branch_name: The hash of the branch the page will live on
         :param _id: The ID of the new page
         :param title: The name of the new page
         :return: The new page created
         """
-        page = Page(self.id, _id, branch_name, title)
+        page = Page(self.id, _id, path, branch_name, title)
         if title is not None:
             page.set_title(title)
         self.sub_pages[page.id] = page
@@ -163,9 +164,9 @@ class Page(StructureComponent):
         """
         if type(self) is not type(other) or len(self.sub_pages) != len(other.sub_pages):
             return False
-        # Only compare id, name, file name, and sub-pages
-        for attr1, attr2 in zip([self.id, self.name, self.file] + self.all_children(),
-                                [other.id, other.name, self.file] + other.all_children()):
+        # Only compare id, name, path name, and sub-pages
+        for attr1, attr2 in zip([self.id, self.name, self.path] + self.all_children(),
+                                [other.id, other.name, self.path] + other.all_children()):
             if attr1 != attr2:
                 return False
         return True
@@ -180,22 +181,22 @@ class Page(StructureComponent):
         return new_page
 
     def buffer_file(self) -> str:
-        """ Gets the name of the file that stores this Page's TextBuffer
-        :return: The name of the file that will be used to store a TextBuffer for this Page
+        """ Gets the name of the path that stores this Page's TextBuffer
+        :return: The name of the path that will be used to store a TextBuffer for this Page
         """
-        return self.file
+        return self.path
 
     def save_buffer(self, buffer: Gtk.TextBuffer) -> str:
         """ Saves a TextBuffer to disk
         :param buffer: The buffer to be serialized
-        :return: The name of the file written to
+        :return: The name of the path written to
         """
         start, end = buffer.get_bounds()
         tags = buffer.register_serialize_tagset()
         data = buffer.serialize(buffer, tags, start, end)
-        with open(self.file, 'wb') as file:
+        with open(self.path, 'wb') as file:
             file.write(data)
-        return self.file
+        return self.path
 
     def load_buffer(self) -> Gtk.TextBuffer:
         """ Loads this Page's TextBuffer from disk
@@ -203,7 +204,7 @@ class Page(StructureComponent):
         """
         buffer = Gtk.TextBuffer()
         tags = buffer.register_deserialize_tagset()
-        with open(self.file, 'rb') as file:
+        with open(self.path, 'rb') as file:
             buffer.deserialize(buffer, tags, buffer.get_bounds()[0], file.read())
         return buffer
 
@@ -223,14 +224,15 @@ class Tab(StructureComponent):
         # dict of all top-level pages as {_id: Page}
         self.pages: Dict[int, Page] = OrderedDict()
 
-    def add_page(self, _id: int, branch_name: str, title: str = None) -> Page:
+    def add_page(self, _id: int, path: str, branch_name: str, title: str = None) -> Page:
         """ Adds a new page under this Tab
+        :param path: The path where the page will be saved
         :param branch_name: The hash of the branch that the Page will live on
         :param _id: The ID of the new page
         :param title: The name of the new page
         :return: The new page created
         """
-        new_page = Page(self.id, _id, branch_name, title)
+        new_page = Page(self.id, _id, path, branch_name, title)
         self.pages[new_page.id] = new_page
         return new_page
 
@@ -306,10 +308,10 @@ class StructureManager:
         # !! This code MUST be at the end of the constructor !!
         with open(os.path.join(self.path, 'start'), 'w') as f:
             f.write('start')
-        self.history_manager.make_checkpoint()
+        self.history_manager.track_file(os.path.join(self.path, 'start'))
         self.history_manager.new_branch(STRUCTURE_MANAGER_BRANCH)
         self.save()
-        self.history_manager.make_checkpoint()
+        self.history_manager.track_file(os.path.join(self.path, STRUCTURE_MANAGER_FILE))
         self.history_manager.switch_to_master()
 
     def new_tab(self, name: str = None) -> int:
@@ -342,7 +344,7 @@ class StructureManager:
         parent = self.get_component(parent_id)
         branch_name = re.sub(r'\s+', '', title) + '-' + str(self._component_count)
         self.history_manager.new_branch(branch_name)
-        page = parent.add_page(self._component_count, branch_name, title)
+        page = parent.add_page(self._component_count, self.path, branch_name, title)
         self._component_count += 1
         StructureComponent.component_create.release()
         self.components[page.id] = page
@@ -352,6 +354,8 @@ class StructureManager:
         # Guarantee that the first created Page is active
         if self.active_page is None:
             self.set_active_page(page.id)
+        self.save_page(Gtk.TextBuffer(), page.id)
+        self.history_manager.track_file(page.path)
         return page.id
 
     def remove_component(self, _id: int) -> None:
@@ -436,7 +440,7 @@ class StructureManager:
         """ Saves a Page's TextBuffer to disk
         :param page_id: The ID of the page the TextBuffer is associated with (default is active page)
         :param text_buffer: The TextBuffer containing the Page's text
-        :return: The name of the file the text_buffer was saved to
+        :return: The name of the path the text_buffer was saved to
         """
         if page_id is None:
             page_id = self.active_page
@@ -458,7 +462,7 @@ class StructureManager:
 
     def save(self, f_name: str = STRUCTURE_MANAGER_FILE) -> bool:
         """ Saves this StructureManager to disk
-        :param f_name: The name of the file to save this StructureManager to
+        :param f_name: The name of the path to save this StructureManager to
         :return: Result of call to StructureManager.persist(self, self.path)
         """
         return StructureManager.persist(self, f_name)
@@ -474,11 +478,9 @@ class StructureManager:
     def persist(structure_manager: 'StructureManager', f_name: str) -> bool:
         """ Persists this StructureManager to disk using a Pickler
         :param structure_manager: The StructureManager to persist
-        :param f_name: The name of the file to be saved
+        :param f_name: The name of the path to be saved
         :return: True if successfully persisted, False otherwise
         """
-        if not f_name.endswith('.tnb'):
-            f_name += '.tnb'
         _copy = copy.deepcopy(structure_manager)
         prev = structure_manager.history_manager.get_active_branch()
         structure_manager.history_manager.repo.git.checkout(STRUCTURE_MANAGER_BRANCH)
@@ -490,15 +492,15 @@ class StructureManager:
 
     @staticmethod
     def load_from_disk(path: str) -> 'StructureManager':
-        """ Loads a StructureManager from a pickle file
-        :param path: The path of the pickle file to load from
-        :raise TypeError: If the given pickle file does not represent a StructureManager
-        :return: A StructureManager restored from the pickle file
+        """ Loads a StructureManager from a pickle path
+        :param path: The path of the pickle path to load from
+        :raise TypeError: If the given pickle path does not represent a StructureManager
+        :return: A StructureManager restored from the pickle path
         """
         with open(path, 'rb') as file:
             sm: StructureManager = pickle.load(file)
         if type(sm) is not StructureManager:
-            raise TypeError(f"Loaded file {path} is not a StructureManager!")
+            raise TypeError(f"Loaded path {path} is not a StructureManager!")
         sm.history_manager.switch_branch(sm.get_as_page(sm.active_page).branch_name)
         return sm
 

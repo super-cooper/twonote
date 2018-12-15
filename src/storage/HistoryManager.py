@@ -13,7 +13,7 @@ class HistoryManager:
     def __init__(self, path: str, git_dir: str = '.history', remote: str = None):
         """ Constructor
         :param path: The path to the repository
-        :param git_dir: The location of the git dot file TODO make use of this
+        :param git_dir: The location of the git dot path TODO make use of this
         :param remote: The remote repository to back up this notebook to
         """
         self.git_dir = os.path.join(path, git_dir)
@@ -23,15 +23,19 @@ class HistoryManager:
         self.master: str = self.get_active_branch()
         self.redo_stack: Dict[str, list] = defaultdict(list)
 
-    def make_checkpoint(self, message: str = None) -> bool:
+    def make_checkpoint(self, message: str = None) -> str:
         """ Creates a checkpoint in history
         :param message: The message to go with the checkpoint. If no message is provided, the default message is just a
         timestamp
         :return: The hex code of the checkpoint
         """
-        commit = self.repo.index.commit(message if message is not None else time.strftime("%a, %d %b %Y %H:%M"))
+        try:
+            commit = self.repo.git.commit(a=True, m="\"" + (
+                message if message is not None else time.strftime("%a, %d %b %Y %H:%M")) + "\"")
+        except git.exc.GitCommandError as e:
+            commit = str(e)
         self.redo_stack[self.get_active_branch()] = []
-        return commit.hexsha
+        return commit
 
     def switch_branch(self, branch_name: str) -> bool:
         """ Switches the branch
@@ -118,3 +122,11 @@ class HistoryManager:
         history = self.repo.git.reflog()
         self.switch_branch(prev)
         return history
+
+    def track_file(self, path: str) -> str:
+        """ Adds a path to the tracking index
+        :param path: The path to the path
+        :return: The output of the checkpoint made at the start of tracking
+        """
+        self.repo.index.add([path])
+        return self.make_checkpoint('Track file: ' + path)
