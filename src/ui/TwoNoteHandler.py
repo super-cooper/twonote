@@ -116,6 +116,7 @@ def initial_setup(parent_tab_name, initial_page_id):
     global treeview
     global store
     global manager
+    global first_page_iter
 
     tree_selection = treeview.get_selection()
     iter = tree_selection.get_selected()[1]
@@ -141,6 +142,7 @@ def initial_setup(parent_tab_name, initial_page_id):
     path_row = store.get_path(new_row)
     treeview.expand_row(path_parent, False)
     tree_selection.select_iter(new_row)
+    first_page_iter = new_row
 
 '''NOTE: first try statement does not work. Delete structure manager after running the applicastion'''
 try:
@@ -497,14 +499,12 @@ class Handler:
         global buffer
         global textview
         global scrolled_window
+        global first_page_iter
 
         '''If no page is open and you want to switch to a page'''
         if (store.get(store.get_iter(path), 0)[0] == "Notebook"):
-            print("If statement 1")
-            manager.save_page(buffer)
-            textview_box.remove(textview)
-            textview.destroy()
-            buffer = None
+            tree_selection = treeview.get_selection()
+            tree_selection.select_iter(first_page_iter)
         else:
             '''switch from one page to another'''
             print("If statement 3")
