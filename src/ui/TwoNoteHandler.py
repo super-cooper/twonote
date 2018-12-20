@@ -519,6 +519,96 @@ class Handler:
         Gtk.main_quit()
 
 
+####################################### Shortcuts Implementation ##################################
+
+def bind_accelerator(accelerators, widget, accelerator, signal='clicked'):
+    key, mod = Gtk.accelerator_parse(accelerator)
+    widget.add_accelerator(signal, accelerators, key, mod, Gtk.AccelFlags.VISIBLE)
+
+def run_command_bold(widget):
+#	if (button.get_active() == False):
+#		print("button false")
+#	else:
+#		print("button true")
+    #Handler.button_clicked(widget)
+    name = Gtk.Buildable.get_name(widget)
+    bounds = buffer.get_selection_bounds()
+
+    if "bold" not in active_tags:
+        active_tags.append("bold")
+        if len(bounds) != 0:
+            start, end = bounds
+            buffer.apply_tag_by_name(name, start, end)
+    else:
+        active_tags.remove("bold")
+        if len(bounds) != 0:
+            start, end = bounds
+            buffer.remove_tag_by_name(name, start, end)
+
+def run_command_underline(widget):
+    name = Gtk.Buildable.get_name(widget)
+    bounds = buffer.get_selection_bounds()
+    #Handler.button_clicked(widget)
+    if "underline" not in active_tags:
+        active_tags.append("underline")
+        if len(bounds) != 0:
+            start, end = bounds
+            buffer.apply_tag_by_name(name, start, end)
+        #widget.set_active(True)
+    else:
+        active_tags.remove("underline")
+        #widget.set_active(False)
+        if len(bounds) != 0:
+            start, end = bounds
+            buffer.remove_tag_by_name(name, start, end)
+
+
+def run_command_italics(widget):
+    #handler = Handler()
+
+    #Handler.button_clicked(handler,widget)
+    #if "bold" not in active_tags:
+    #    
+    #else:
+    #    
+    name = Gtk.Buildable.get_name(widget)
+    bounds = buffer.get_selection_bounds()
+    #Handler.button_clicked(widget)
+    if "italics" not in active_tags:
+        active_tags.append("italics")
+        if len(bounds) != 0:
+            start, end = bounds
+            buffer.apply_tag_by_name(name, start, end)
+        #widget.set_active(True)
+    else:
+        active_tags.remove("italics")
+        #widget.set_active(False)
+        if len(bounds) != 0:
+            start, end = bounds
+            buffer.remove_tag_by_name(name, start, end)
+
+#Adding accelerators to the window
+accelerators = Gtk.AccelGroup()
+window.add_accel_group(accelerators)
+
+#Widget
+target_bold = builder.get_object("bold")
+target_bold.connect('clicked', run_command_bold)
+target_underline = builder.get_object("underline")
+target_underline.connect('clicked', run_command_underline)
+target_italics = builder.get_object("italics")
+target_italics.connect('clicked', run_command_italics)
+
+#Bind
+bind_accelerator(accelerators, target_bold, '<Control>b')
+bind_accelerator(accelerators, target_underline, '<Control>u')
+bind_accelerator(accelerators, target_italics, '<Control>i')
+
+
+
+###################################################################################################
+
+
 builder.connect_signals(Handler())
 buffer.connect("insert-text", Handler.get_old_pos)
 buffer.connect("end-user-action", Handler.edit_input)
