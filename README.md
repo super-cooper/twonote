@@ -15,8 +15,5 @@ Weizheng Zhang
 
 `python3-git`
 
-## Building
-When we have a working build system, we will describe it here
-
 ## Running
-We will put how to run the app here
+`$ python3 TwoNoteHandler.py`
