@@ -63,7 +63,7 @@ def setup_buffer(buffer):
 
     tag_strike = buffer.create_tag("strike", strikethrough=True)
 
-    tag_color = buffer.create_tag("Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=1.000000)", foreground_rgba=Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=1.000000))
+    tag_color = buffer.create_tag("Gdk.RGBA(red=255.000000, green=255.000000, blue=255.000000, alpha=1.000000)", foreground_rgba=Gdk.RGBA(red=255.000000, green=255.000000, blue=255.000000, alpha=1.000000))
 
     tag_highlight = buffer.create_tag("highlight: Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=0.000000)", background_rgba=Gdk.RGBA(red=0.000000, green=0.000000, blue=0.000000, alpha=0.000000))
 
