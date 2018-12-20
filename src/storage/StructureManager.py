@@ -191,9 +191,7 @@ class Page(StructureComponent):
         :param buffer: The buffer to be serialized
         :return: The name of the path written to
         """
-        start, end = buffer.get_bounds()
-        tags = buffer.register_serialize_tagset()
-        data = buffer.serialize(buffer, tags, start, end)
+        data = buffer.serialize(buffer, buffer.register_serialize_tagset(), *buffer.get_bounds())
         with open(self.path, 'wb') as file:
             file.write(data)
         return self.path
@@ -205,7 +203,7 @@ class Page(StructureComponent):
         buffer = Gtk.TextBuffer()
         tags = buffer.register_deserialize_tagset()
         with open(self.path, 'rb') as file:
-            buffer.deserialize(buffer, tags, buffer.get_bounds()[0], file.read())
+            buffer.deserialize(buffer, tags, buffer.get_start_iter(), file.read())
         return buffer
 
 

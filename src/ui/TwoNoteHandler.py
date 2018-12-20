@@ -1,8 +1,6 @@
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
-import sys
-sys.path.append("..")
 from storage.StructureManager import StructureManager, STRUCTURE_MANAGER_FILE
 import os
 
