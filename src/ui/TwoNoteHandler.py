@@ -1,7 +1,9 @@
+import os
+
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
-from storage.StructureManager import StructureManager
+from storage.StructureManager import StructureManager, STRUCTURE_MANAGER_FILE
 
 TEST_NOTEBOOK_PATH = '/tmp/TestNotebook/'
 
@@ -98,7 +100,7 @@ def show_treeview():
 
     resizable = True
     column_id.set_resizable(resizable)
-    column_id.set_visible(True)
+    column_id.set_visible(False)
     treeview.append_column(column_id)
 
 
