@@ -1,8 +1,7 @@
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Pango
-from storage.StructureManager import StructureManager, STRUCTURE_MANAGER_FILE
-import os
+from storage.StructureManager import StructureManager
 
 TEST_NOTEBOOK_PATH = '/tmp/TestNotebook/'
 
