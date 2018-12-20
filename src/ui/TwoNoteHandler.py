@@ -8,7 +8,7 @@ TEST_NOTEBOOK_PATH = '/tmp/TestNotebook/'
 
 '''Get essential widgets from Glade File'''
 builder = Gtk.Builder()
-builder.add_from_file("Notepad.glade")
+builder.add_from_file("Weizheng.glade")
 window = builder.get_object("MainWindow")
 treeview = builder.get_object("treeview")
 textview_box=builder.get_object("textview_box")
@@ -143,22 +143,22 @@ def initial_setup(parent_tab_name, initial_page_id):
     first_page_iter = new_row
 
 '''NOTE: first try statement does not work. Delete structure manager after running the applicastion'''
-try:
-    manager = StructureManager.load_from_disk(os.path.join(TEST_NOTEBOOK_PATH, STRUCTURE_MANAGER_FILE))
-    buffer = manager.extract_text_from_page(manager.active_page)
-    textview = Gtk.TextView()
-    textview.set_buffer(buffer)
+#try:
+    #manager = StructureManager.load_from_disk(os.path.join(TEST_NOTEBOOK_PATH, STRUCTURE_MANAGER_FILE))
+    #buffer = manager.extract_text_from_page(manager.active_page)
+    #textview = Gtk.TextView()
+    #textview.set_buffer(buffer)
     #get the active page
 
-except FileNotFoundError:
-    manager = StructureManager(TEST_NOTEBOOK_PATH)
-    parent_tab_ID = manager.new_tab("Notebook")
-    parent_tab = "Notebook"
-    show_treeview()
-    initial_setup(parent_tab, manager.new_page(parent_tab_ID))
+#except FileNotFoundError:
+manager = StructureManager(TEST_NOTEBOOK_PATH)
+parent_tab_ID = manager.new_tab("Notebook")
+parent_tab = "Notebook"
+show_treeview()
+initial_setup(parent_tab, manager.new_page(parent_tab_ID))
 
-    textview = Gtk.TextView()
-    buffer = textview.get_buffer()
+textview = Gtk.TextView()
+buffer = textview.get_buffer()
 
 textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
 setup_buffer(buffer)
@@ -251,6 +251,7 @@ class Handler:
         #for x in active_tags:
             #print(x)
 
+        print(manager.active_page)
         buffer.remove_tag_by_name("found", buffer.get_start_iter(), buffer.get_end_iter())
         buffer.apply_tag(tag_font, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
         buffer.apply_tag(tag_size, buffer.get_iter_at_mark(buffer.get_mark("old_pos")), buffer.get_iter_at_mark(buffer.get_insert()))
@@ -342,7 +343,6 @@ class Handler:
         else:
             spacing_blocked = False
 
-    #TODO: change this
     def on_search_clicked(self, widget):
         global buffer
         global window
@@ -358,7 +358,6 @@ class Handler:
 
         dialog.destroy()
 
-    #TODO: change this
     #TODO: Make user apply tags to highlighted text
     def search_and_mark(self, text_entry, text_replace, start):
         global buffer
@@ -380,9 +379,6 @@ class Handler:
             else:
                 buffer.apply_tag(tag_found, match_start, match_end)
             Handler.search_and_mark(self, text_entry, text_replace, match_end) #TODO: What is this 'self'. Deactivate tag when you start typing again. fixed after user testing
-
-    def test(text, a ,b ,c, d):
-        print("ahh!")
 
     def set_wrapping(self, button):
         global textview
@@ -456,6 +452,8 @@ class Handler:
         global buffer
         '''new page and then set active page'''
 
+        manager.save_page(buffer)
+
         manager.new_page(manager.active_page)
 
         tree_selection = treeview.get_selection()
@@ -474,8 +472,6 @@ class Handler:
             treeview.expand_row(path_parent, False)
             tree_selection.select_iter(new_row)
 
-        '''I believe something is wrong here'''
-        manager.save_page(buffer)
         buffer = Gtk.TextBuffer()
         setup_buffer(buffer)
         textview.set_buffer(buffer)
@@ -505,11 +501,12 @@ class Handler:
             tree_selection.select_iter(first_page_iter)
         else:
             '''switch from one page to another'''
-            print("If statement 3")
+            #print("If statement 3")
             manager.save_page(buffer)
             active_page_ID = store.get(store.get_iter(path), 1)[0]
+            '''Is this necessary?'''
             manager.set_active_page(active_page_ID)
-            print(active_page_ID)
+            #print(active_page_ID)
             buffer = manager.extract_text_from_page(manager.active_page)
             textview.set_buffer(buffer)
 
@@ -517,6 +514,7 @@ class Handler:
     #or else python interpreter will continue running
     def close(self, *args):
         global manager
+        #manager.save(buffer)
         manager.close()
         Gtk.main_quit()
 
@@ -524,8 +522,6 @@ class Handler:
 builder.connect_signals(Handler())
 buffer.connect("insert-text", Handler.get_old_pos)
 buffer.connect("end-user-action", Handler.edit_input)
-#TODO: not working
-textview.connect("move-cursor", Handler.test)
 treeview.connect("row-activated", Handler.change_page)
 #color_chooser.connect("response", Handler.close_dialog)
 #buffer.connect("group-changed", Handler.set_spacing)
