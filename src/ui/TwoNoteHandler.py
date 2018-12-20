@@ -119,6 +119,7 @@ def initial_setup(parent_tab_name, initial_page_id):
     tree_selection = treeview.get_selection()
     iter = tree_selection.get_selected()[1]
     new_row = store.insert(iter, 100)
+    parent = new_row
     #store.set(new_row, 0, name, 1, '0')
     store.set(new_row, 0, parent_tab_name)
     store.set(new_row, 1, 0)
@@ -142,20 +143,61 @@ def initial_setup(parent_tab_name, initial_page_id):
     tree_selection.select_iter(new_row)
     first_page_iter = new_row
 
+    return parent
+
+def new_row_initial(parent, id, first_page):
+    global store
+    global first_page_iter
+
+    new_row = store.insert(parent, 100)
+
+    store.set(new_row, 0, "Untitled Page")
+    store.set(new_row, 1, id)
+
+    page = manager.get_as_page(id)
+
+    if first_page:
+        first_page_iter = new_row
+        path_parent =  store.get_path(parent)
+        treeview.expand_row(path_parent, False)
+        tree_selection.select_iter(new_row)
+
+
+    for x in page.all_children():
+        new_row_initial(new_row, x, False)
+
 '''NOTE: first try statement does not work. Delete structure manager after running the applicastion'''
-#try:
-    #manager = StructureManager.load_from_disk(os.path.join(TEST_NOTEBOOK_PATH, STRUCTURE_MANAGER_FILE))
-    #buffer = manager.extract_text_from_page(manager.active_page)
-    #textview = Gtk.TextView()
-    #textview.set_buffer(buffer)
+try:
+    manager = StructureManager.load_from_disk(os.path.join(TEST_NOTEBOOK_PATH, STRUCTURE_MANAGER_FILE))
+    print(manager.pages)
+    parent_tab_ID = manager.new_tab("Notebook")
+    parent_tab = "Notebook"
+    show_treeview()
+
+
+    tree_selection = treeview.get_selection()
+    iter = tree_selection.get_selected()[1]
+    new_row = store.insert(iter, 100)
+    parent = new_row
+    #store.set(new_row, 0, name, 1, '0')
+    store.set(new_row, 0, parent_tab)
+    store.set(new_row, 1, 0)
+
+
+
+    for x in manager.pages:
+        new_row_initial(parent, x, True)
+    buffer = manager.extract_text_from_page(1)
+    textview = Gtk.TextView()
+    textview.set_buffer(buffer)
     #get the active page
 
-#except FileNotFoundError:
-manager = StructureManager(TEST_NOTEBOOK_PATH)
-parent_tab_ID = manager.new_tab("Notebook")
-parent_tab = "Notebook"
-show_treeview()
-initial_setup(parent_tab, manager.new_page(parent_tab_ID))
+except FileNotFoundError:
+    manager = StructureManager(TEST_NOTEBOOK_PATH)
+    parent_tab_ID = manager.new_tab("Notebook")
+    parent_tab = "Notebook"
+    show_treeview()
+    initial_setup(parent_tab, manager.new_page(parent_tab_ID))
 
 textview = Gtk.TextView()
 buffer = textview.get_buffer()
@@ -514,7 +556,7 @@ class Handler:
     #or else python interpreter will continue running
     def close(self, *args):
         global manager
-        #manager.save(buffer)
+        manager.save_page(buffer)
         manager.close()
         Gtk.main_quit()
 
